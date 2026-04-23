@@ -1,0 +1,711 @@
+{
+  "buffett": [
+    {
+      "name": "AMERICAN EXPRESS CO",
+      "cusip": "025816109",
+      "value": 55145133598,
+      "shares": 149061045
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 21929537965,
+      "shares": 80664820
+    },
+    {
+      "name": "COCA COLA CO",
+      "cusip": "191216100",
+      "value": 19765145984,
+      "shares": 282722729
+    },
+    {
+      "name": "BANK AMERICA CORP",
+      "cusip": "060505104",
+      "value": 17094000000,
+      "shares": 310800000
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 16731076718,
+      "shares": 61542988
+    },
+    {
+      "name": "OCCIDENTAL PETE CORP",
+      "cusip": "674599105",
+      "value": 10894391643,
+      "shares": 264941431
+    },
+    {
+      "name": "CHUBB LIMITED",
+      "cusip": "H1467J104",
+      "value": 10689854998,
+      "shares": 34249183
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 9440066640,
+      "shares": 34724000
+    },
+    {
+      "name": "CHEVRON CORP NEW",
+      "cusip": "166764100",
+      "value": 9385335405,
+      "shares": 61579525
+    },
+    {
+      "name": "KRAFT HEINZ CO",
+      "cusip": "500754106",
+      "value": 7896644337,
+      "shares": 325634818
+    },
+    {
+      "name": "BANK AMERICA CORP",
+      "cusip": "060505104",
+      "value": 6914600000,
+      "shares": 125720000
+    },
+    {
+      "name": "MOODYS CORP",
+      "cusip": "615369105",
+      "value": 6448842688,
+      "shares": 12623750
+    },
+    {
+      "name": "MOODYS CORP",
+      "cusip": "615369105",
+      "value": 6116881119,
+      "shares": 11973928
+    },
+    {
+      "name": "COCA COLA CO",
+      "cusip": "191216100",
+      "value": 5612598512,
+      "shares": 80283200
+    },
+    {
+      "name": "ALPHABET INC",
+      "cusip": "02079K305",
+      "value": 5585842446,
+      "shares": 17846142
+    },
+    {
+      "name": "CHEVRON CORP NEW",
+      "cusip": "166764100",
+      "value": 4955947671,
+      "shares": 32517208
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 4222529520,
+      "shares": 15532000
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 3934357920,
+      "shares": 14472000
+    },
+    {
+      "name": "VISA INC",
+      "cusip": "92826C839",
+      "value": 2910002197,
+      "shares": 8297460
+    },
+    {
+      "name": "CHEVRON CORP NEW",
+      "cusip": "166764100",
+      "value": 2676929392,
+      "shares": 17564001
+    },
+    {
+      "name": "MASTERCARD INCORPORATED",
+      "cusip": "57636Q104",
+      "value": 2275897610,
+      "shares": 3986648
+    },
+    {
+      "name": "SIRIUS XM HOLDINGS INC",
+      "cusip": "829933100",
+      "value": 2175900429,
+      "shares": 108822227
+    },
+    {
+      "name": "APPLE INC",
+      "cusip": "037833100",
+      "value": 1958479440,
+      "shares": 7204000
+    },
+    {
+      "name": "VERISIGN INC",
+      "cusip": "92343E102",
+      "value": 1947713872,
+      "shares": 8016933
+    },
+    {
+      "name": "DAVITA INC",
+      "cusip": "23918K108",
+      "value": 1889571518,
+      "shares": 16632088
+    }
+  ],
+  "ackman": [
+    {
+      "name": "BROOKFIELD CORP",
+      "cusip": "11271J107",
+      "value": 2817787754,
+      "shares": 61403089
+    },
+    {
+      "name": "UBER TECHNOLOGIES INC",
+      "cusip": "90353T100",
+      "value": 2468273945,
+      "shares": 30207734
+    },
+    {
+      "name": "AMAZON COM INC",
+      "cusip": "023135106",
+      "value": 2217677936,
+      "shares": 9607824
+    },
+    {
+      "name": "ALPHABET INC",
+      "cusip": "02079K107",
+      "value": 1934222720,
+      "shares": 6163871
+    },
+    {
+      "name": "META PLATFORMS INC",
+      "cusip": "30303M102",
+      "value": 1764796161,
+      "shares": 2673569
+    },
+    {
+      "name": "RESTAURANT BRANDS INTL INC",
+      "cusip": "76131D103",
+      "value": 1560199922,
+      "shares": 22866773
+    },
+    {
+      "name": "HOWARD HUGHES HOLDINGS INC",
+      "cusip": "44267T102",
+      "value": 1503829145,
+      "shares": 18852064
+    },
+    {
+      "name": "HILTON WORLDWIDE HLDGS INC",
+      "cusip": "43300A203",
+      "value": 869983734,
+      "shares": 3028664
+    },
+    {
+      "name": "ALPHABET INC",
+      "cusip": "02079K305",
+      "value": 212306961,
+      "shares": 678297
+    },
+    {
+      "name": "SEAPORT ENTMT GROUP INC",
+      "cusip": "812215200",
+      "value": 99320131,
+      "shares": 5023780
+    },
+    {
+      "name": "HERTZ GLOBAL HLDGS INC",
+      "cusip": "42806J700",
+      "value": 78339393,
+      "shares": 15241127
+    }
+  ],
+  "burry": [
+    {
+      "name": "PALANTIR TECHNOLOGIES INC",
+      "cusip": "69608A108",
+      "value": 912100000,
+      "shares": 5000000
+    },
+    {
+      "name": "NVIDIA CORPORATION",
+      "cusip": "67066G104",
+      "value": 186580000,
+      "shares": 1000000
+    },
+    {
+      "name": "PFIZER INC",
+      "cusip": "717081103",
+      "value": 152880000,
+      "shares": 6000000
+    },
+    {
+      "name": "HALLIBURTON CO",
+      "cusip": "406216101",
+      "value": 61500000,
+      "shares": 2500000
+    },
+    {
+      "name": "MOLINA HEALTHCARE INC",
+      "cusip": "60855R100",
+      "value": 23920000,
+      "shares": 125000
+    },
+    {
+      "name": "LULULEMON ATHLETICA INC",
+      "cusip": "550021109",
+      "value": 17793000,
+      "shares": 100000
+    },
+    {
+      "name": "SLM CORP",
+      "cusip": "78442P106",
+      "value": 13287895,
+      "shares": 480054
+    },
+    {
+      "name": "BRUKER CORP",
+      "cusip": "116794207",
+      "value": 13137181,
+      "shares": 48334
+    }
+  ],
+  "dalio": [
+    {
+      "name": "SPDR S&amp;P 500 ETF TR",
+      "cusip": "78462F103",
+      "value": 3038235233,
+      "shares": 4455413
+    },
+    {
+      "name": "ISHARES TR",
+      "cusip": "464287200",
+      "value": 2866877329,
+      "shares": 4185589
+    },
+    {
+      "name": "NVIDIA CORPORATION",
+      "cusip": "67066G104",
+      "value": 720860733,
+      "shares": 3865205
+    },
+    {
+      "name": "LAM RESEARCH CORP",
+      "cusip": "512807306",
+      "value": 520671530,
+      "shares": 3041661
+    },
+    {
+      "name": "SALESFORCE INC",
+      "cusip": "79466L302",
+      "value": 511823604,
+      "shares": 1932066
+    },
+    {
+      "name": "ALPHABET INC",
+      "cusip": "02079K305",
+      "value": 497928538,
+      "shares": 1590826
+    },
+    {
+      "name": "MICROSOFT CORP",
+      "cusip": "594918104",
+      "value": 475926089,
+      "shares": 984091
+    },
+    {
+      "name": "AMAZON COM INC",
+      "cusip": "023135106",
+      "value": 449695988,
+      "shares": 1948254
+    },
+    {
+      "name": "ADOBE INC",
+      "cusip": "00724F101",
+      "value": 446256499,
+      "shares": 1275055
+    },
+    {
+      "name": "GE VERNOVA INC",
+      "cusip": "36828A101",
+      "value": 435275659,
+      "shares": 665997
+    },
+    {
+      "name": "BOOKING HOLDINGS INC",
+      "cusip": "09857L108",
+      "value": 431254014,
+      "shares": 80528
+    },
+    {
+      "name": "BROADCOM INC",
+      "cusip": "11135F101",
+      "value": 403462614,
+      "shares": 1165740
+    },
+    {
+      "name": "ORACLE CORP",
+      "cusip": "68389X105",
+      "value": 365160182,
+      "shares": 1873481
+    },
+    {
+      "name": "ADVANCED MICRO DEVICES INC",
+      "cusip": "007903107",
+      "value": 354761822,
+      "shares": 1656527
+    },
+    {
+      "name": "JOHNSON &amp; JOHNSON",
+      "cusip": "478160104",
+      "value": 271923608,
+      "shares": 1313958
+    },
+    {
+      "name": "MICRON TECHNOLOGY INC",
+      "cusip": "595112103",
+      "value": 253912152,
+      "shares": 889640
+    },
+    {
+      "name": "MASTERCARD INCORPORATED",
+      "cusip": "57636Q104",
+      "value": 233608092,
+      "shares": 409207
+    },
+    {
+      "name": "NEWMONT CORP",
+      "cusip": "651639106",
+      "value": 230544564,
+      "shares": 2308909
+    },
+    {
+      "name": "WORKDAY INC",
+      "cusip": "98138H101",
+      "value": 207287829,
+      "shares": 965117
+    },
+    {
+      "name": "SERVICENOW INC",
+      "cusip": "81762P102",
+      "value": 205103793,
+      "shares": 1338885
+    },
+    {
+      "name": "ISHARES INC",
+      "cusip": "464286772",
+      "value": 201474645,
+      "shares": 2072358
+    },
+    {
+      "name": "SEA LTD",
+      "cusip": "81141R100",
+      "value": 195599126,
+      "shares": 1533269
+    },
+    {
+      "name": "PAYPAL HLDGS INC",
+      "cusip": "70450Y103",
+      "value": 194365176,
+      "shares": 3329311
+    },
+    {
+      "name": "ALTRIA GROUP INC",
+      "cusip": "02209S103",
+      "value": 188937463,
+      "shares": 3276751
+    },
+    {
+      "name": "VISA INC",
+      "cusip": "92826C839",
+      "value": 188154863,
+      "shares": 536497
+    }
+  ],
+  "wood": [
+    {
+      "name": "TESLA INC",
+      "ticker": "TSLA",
+      "value": 694193096,
+      "shares": 1796473,
+      "weight": 9.66
+    },
+    {
+      "name": "CRISPR THERAPEUTICS AG",
+      "ticker": "CRSP",
+      "value": 455923472,
+      "shares": 8208921,
+      "weight": 6.35
+    },
+    {
+      "name": "TEMPUS AI INC-CL A",
+      "ticker": "TEM",
+      "value": 374936392,
+      "shares": 6798484,
+      "weight": 5.22
+    },
+    {
+      "name": "ADVANCED MICRO DEVICES",
+      "ticker": "AMD",
+      "value": 341231246,
+      "shares": 1199449,
+      "weight": 4.75
+    },
+    {
+      "name": "SHOPIFY INC - CLASS A",
+      "ticker": "SHOP",
+      "value": 333504371,
+      "shares": 2543311,
+      "weight": 4.64
+    },
+    {
+      "name": "ROBINHOOD MARKETS INC - A",
+      "ticker": "HOOD",
+      "value": 326956047,
+      "shares": 3782900,
+      "weight": 4.55
+    },
+    {
+      "name": "COINBASE GLOBAL INC -CLASS A",
+      "ticker": "COIN",
+      "value": 311016150,
+      "shares": 1587222,
+      "weight": 4.33
+    },
+    {
+      "name": "ROKU INC",
+      "ticker": "ROKU",
+      "value": 298521002,
+      "shares": 2616081,
+      "weight": 4.15
+    },
+    {
+      "name": "CIRCLE INTERNET GROUP INC",
+      "ticker": "CRCL",
+      "value": 285909248,
+      "shares": 2977601,
+      "weight": 3.98
+    },
+    {
+      "name": "BEAM THERAPEUTICS INC",
+      "ticker": "BEAM",
+      "value": 271707132,
+      "shares": 8853279,
+      "weight": 3.78
+    },
+    {
+      "name": "ROBLOX CORP -CLASS A",
+      "ticker": "RBLX",
+      "value": 240060358,
+      "shares": 3918713,
+      "weight": 3.34
+    },
+    {
+      "name": "PALANTIR TECHNOLOGIES INC-A",
+      "ticker": "PLTR",
+      "value": 231505646,
+      "shares": 1585981,
+      "weight": 3.22
+    },
+    {
+      "name": "TWIST BIOSCIENCE CORP",
+      "ticker": "TWST",
+      "value": 230089496,
+      "shares": 3674964,
+      "weight": 3.2
+    },
+    {
+      "name": "COREWEAVE INC-CL A",
+      "ticker": "CRWV",
+      "value": 191091321,
+      "shares": 1659355,
+      "weight": 2.66
+    },
+    {
+      "name": "BULLISH",
+      "ticker": "BLSH",
+      "value": 181787011,
+      "shares": 4335488,
+      "weight": 2.53
+    },
+    {
+      "name": "OPENAI GROUP PBC SERIES C",
+      "ticker": null,
+      "value": 174999811,
+      "shares": 254476,
+      "weight": 2.44
+    },
+    {
+      "name": "10X GENOMICS INC-CLASS A",
+      "ticker": "TXG",
+      "value": 169367158,
+      "shares": 7373407,
+      "weight": 2.36
+    },
+    {
+      "name": "AMAZON.COM INC",
+      "ticker": "AMZN",
+      "value": 155635201,
+      "shares": 622765,
+      "weight": 2.17
+    },
+    {
+      "name": "TERADYNE INC",
+      "ticker": "TER",
+      "value": 152215535,
+      "shares": 400641,
+      "weight": 2.12
+    },
+    {
+      "name": "INTELLIA THERAPEUTICS INC",
+      "ticker": "NTLA",
+      "value": 150003674,
+      "shares": 9797758,
+      "weight": 2.09
+    },
+    {
+      "name": "BITMINE IMMERSION TECHNOLOGI",
+      "ticker": "BMNR",
+      "value": 144872436,
+      "shares": 6673074,
+      "weight": 2.02
+    },
+    {
+      "name": "ARCHER AVIATION INC-A",
+      "ticker": "ACHR",
+      "value": 113224139,
+      "shares": 19061303,
+      "weight": 1.58
+    },
+    {
+      "name": "BLOCK INC",
+      "ticker": "XYZ",
+      "value": 110001001,
+      "shares": 1533115,
+      "weight": 1.53
+    },
+    {
+      "name": "TAIWAN SEMICONDUCTOR-SP ADR",
+      "ticker": "TSM",
+      "value": 94844277,
+      "shares": 257673,
+      "weight": 1.32
+    },
+    {
+      "name": "ILLUMINA INC",
+      "ticker": "ILMN",
+      "value": 88066030,
+      "shares": 667268,
+      "weight": 1.23
+    }
+  ],
+  "pelosi": [
+    {
+      "ticker": "GOOGL",
+      "politician": "Nancy Pelosi",
+      "mentions": 7,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "AMZN",
+      "politician": "Nancy Pelosi",
+      "mentions": 7,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "AAPL",
+      "politician": "Nancy Pelosi",
+      "mentions": 7,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "NVDA",
+      "politician": "Nancy Pelosi",
+      "mentions": 5,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "MSFT",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "JPM",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "UNH",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "JNJ",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "PG",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "V",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    },
+    {
+      "ticker": "META",
+      "politician": "Nancy Pelosi",
+      "mentions": 1,
+      "source": "capitoltrades_html"
+    }
+  ],
+  "musk": [
+    {
+      "date": "2025-12-31",
+      "accession": "0001104659-25-125703"
+    },
+    {
+      "date": "2025-11-10",
+      "accession": "0001104659-25-109263"
+    },
+    {
+      "date": "2025-09-15",
+      "accession": "0001104659-25-089693"
+    },
+    {
+      "date": "2025-08-04",
+      "accession": "0001104659-25-073753"
+    },
+    {
+      "date": "2024-12-31",
+      "accession": "0000950170-24-141705"
+    },
+    {
+      "date": "2023-03-10",
+      "accession": "0000899243-23-008179"
+    },
+    {
+      "date": "2022-12-14",
+      "accession": "0000899243-22-038522"
+    },
+    {
+      "date": "2022-11-08",
+      "accession": "0000899243-22-035394"
+    },
+    {
+      "date": "2022-11-08",
+      "accession": "0000899243-22-035393"
+    },
+    {
+      "date": "2022-11-08",
+      "accession": "0000899243-22-035390"
+    }
+  ]
+}
