@@ -150,7 +150,9 @@ html, body,
 .drw-port { margin:0 14px 14px; background:var(--glass); border:1px solid var(--bdr); border-radius:12px; padding:14px 15px; }
 .drw-eq { font-family:var(--mono); font-size:1.22rem; font-weight:700; color:var(--green); margin:5px 0; }
 .drw-row { display:flex; justify-content:space-between; font-size:0.62rem; margin-top:4px; color:var(--sub); }
-.drw-row span:last-child { font-family:var(--mono); color:var(--text); }
+.drw-val { font-family:var(--mono); color:var(--text); }
+.drw-port-lbl { font-size:0.51rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); font-family:var(--mono); }
+.port-pnl { opacity:0.75; font-size:0.55rem; }
 .drw-hint { font-size:0.62rem; color:var(--muted); padding:8px 20px 4px; font-family:var(--mono); }
 
 /* ── Accent classes ── */
@@ -235,6 +237,22 @@ div.stButton > button[kind="primary"] { background:rgba(0,212,170,0.1) !importan
 .lb-name { font-size:0.81rem; font-weight:500; color:var(--text); flex:1; }
 .empty { text-align:center; padding:56px 20px; color:var(--muted); font-size:0.75rem; font-family:var(--mono); letter-spacing:0.05em; line-height:2.2; }
 [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] { background:var(--green) !important; border-color:var(--green) !important; }
+/* Utility classes to avoid var() in inline HTML strings */
+.price-val  { font-family:'Space Mono',monospace; font-size:1rem; font-weight:700; }
+.price-chg  { font-family:'Space Mono',monospace; font-size:0.73rem; }
+.price-row  { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.unavail    { font-size:0.67rem; color:#7c8fad; padding:6px 0; }
+.about-body { font-size:0.71rem; color:#e2e8f0; line-height:1.72; margin-bottom:6px; }
+.risk-row   { font-size:0.61rem; color:#7c8fad; }
+.risk-bars  { font-family:'Space Mono',monospace; color:#e2e8f0; }
+.date-hint  { font-size:0.55rem; margin-top:2px; color:#3a4a62; }
+.pending-count { text-align:right; font-family:'Space Mono',monospace; font-size:0.76rem; padding-top:20px; }
+.pos-pnl-main { font-family:'Space Mono',monospace; font-size:0.9rem; font-weight:600; }
+.pos-pnl-pct  { font-family:'Space Mono',monospace; font-size:0.66rem; }
+.pos-mkt      { font-size:0.59rem; color:#7c8fad; margin-top:1px; }
+.pos-cat-tag  { font-size:0.55rem; font-family:'Space Mono',monospace; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); border-radius:4px; padding:1px 5px; margin-left:6px; }
+.lb-score-val { font-family:'Space Mono',monospace; font-size:0.79rem; }
+.lb-pnl       { font-family:'Space Mono',monospace; font-size:0.66rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -374,21 +392,20 @@ if acct:
     bp  = float(acct.buying_power)
     pnl = eq - float(acct.last_equity)
     pnl_col = '#00d4aa' if pnl >= 0 else '#ff4757'
+    pnl_cls = 'acc-green' if pnl >= 0 else 'acc-red'
+    pnl_sign = '+' if pnl >= 0 else ''
     port_chip_html = (
         '<div id="port-chip">$' + '{:,.0f}'.format(eq)
-        + ' <span style="opacity:0.65;font-size:0.55rem;color:' + pnl_col + '">'
-        + ('+' if pnl >= 0 else '') + '{:,.2f}'.format(pnl) + '</span></div>'
+        + ' <span class="port-pnl ' + pnl_cls + '">'
+        + pnl_sign + '{:,.2f}'.format(pnl) + '</span></div>'
     )
     drw_port_html = (
         '<div class="drw-port">'
-        '<div style="font-size:0.51rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Portfolio</div>'
+        '<div class="drw-port-lbl">Portfolio</div>'
         '<div class="drw-eq">$' + '{:,.0f}'.format(eq) + '</div>'
-        '<div class="drw-row"><span>Buying power</span><span>$' + '{:,.0f}'.format(bp) + '</span></div>'
-        '<div class="drw-row"><span>Today P&amp;L</span>'
-        '<span style="color:' + pnl_col + ';font-family:var(--mono)">$' + '{:+,.2f}'.format(pnl) + '</span></div>'
-        '<div class="drw-row"><span>Trade size</span>'
-        '<span style="color:var(--green);font-family:var(--mono)">$' + '{:,.0f}'.format(_notional)
-        + ' (' + '{:.1f}'.format(_pct) + '%)</span></div>'
+        '<div class="drw-row"><span>Buying power</span><span class="drw-val">$' + '{:,.0f}'.format(bp) + '</span></div>'
+        '<div class="drw-row"><span>Today P&amp;L</span><span class="drw-val ' + pnl_cls + '">' + pnl_sign + '{:,.2f}'.format(pnl) + '</span></div>'
+        '<div class="drw-row"><span>Trade size</span><span class="drw-val acc-green">$' + '{:,.0f}'.format(_notional) + ' (' + '{:.1f}'.format(_pct) + '%)</span></div>'
         '</div>'
     )
 
@@ -507,7 +524,7 @@ def render_signal_card(s, cat_key, acc, key_prefix, notional):
     co_line  = company + ('  &middot;  ' + sector if sector else '')
     inv_list = [p.strip() for p in investors.split(',') if p.strip()]
     pills    = ''.join('<span class="pill">' + p + '</span>' for p in inv_list)
-    date_ln  = ('<div style="font-size:0.55rem;margin-top:2px;color:var(--muted)">as of ' + data_as_of + '</div>') if data_as_of else ''
+    date_ln  = ('<div class="date-hint">as of ' + data_as_of + '</div>') if data_as_of else ''
 
     st.markdown(
         '<div class="card' + (' card-sell' if is_sell else '') + '">'
@@ -540,19 +557,19 @@ def render_signal_card(s, cat_key, acc, key_prefix, notional):
             pct_chg = ((bars[-1] - bars[0]) / bars[0] * 100) if bars[0] else 0
             chg_cls = 'acc-green' if pct_chg >= 0 else 'acc-red'
             st.markdown(
-                '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
-                '<span class="' + ring_cls + '" style="font-family:var(--mono);font-size:1rem;font-weight:700">$' + '{:,.2f}'.format(bars[-1]) + '</span>'
-                '<span class="' + chg_cls + '" style="font-family:var(--mono);font-size:0.73rem">' + '{:+.1f}'.format(pct_chg) + '% &nbsp;30d</span>'
+                '<div class="price-row">'
+                '<span class="price-val ' + ring_cls + '">$' + '{:,.2f}'.format(bars[-1]) + '</span>'
+                '<span class="price-chg ' + chg_cls + '">' + '{:+.1f}'.format(pct_chg) + '% &nbsp;30d</span>'
                 '</div>', unsafe_allow_html=True)
             st.line_chart({'Price': bars}, height=90, use_container_width=True)
         else:
-            st.markdown('<div style="font-size:0.67rem;color:var(--sub);padding:6px 0">Price history unavailable</div>', unsafe_allow_html=True)
+            st.markdown('<div class="unavail">Price history unavailable</div>', unsafe_allow_html=True)
         if profile:
             risk = profile.get('risk', 3)
             st.markdown(
                 '<div class="ddl">About ' + ticker + '</div>'
-                '<div style="font-size:0.71rem;color:var(--text);line-height:1.72;margin-bottom:6px">' + profile.get('summary','') + '</div>'
-                '<div style="font-size:0.61rem;color:var(--sub)">Risk <span style="font-family:var(--mono);color:var(--text)">' + chr(9608)*risk + chr(9617)*(5-risk) + '</span> ' + str(risk) + '/5</div>',
+                '<div class="about-body">' + profile.get('summary','') + '</div>'
+                '<div class="risk-row">Risk <span class="risk-bars">' + chr(9608)*risk + chr(9617)*(5-risk) + '</span> ' + str(risk) + '/5</div>',
                 unsafe_allow_html=True)
         inv_list2 = [p.strip() for p in investors.split(',') if p.strip()]
         if inv_list2:
@@ -605,7 +622,7 @@ if tab == 'feed':
 
     c1, c2 = st.columns([4, 1])
     with c1: st.markdown('<div class="sec-lbl">'+CATEGORIES[cat]['label']+'  &middot;  Signal Feed</div>', unsafe_allow_html=True)
-    with c2: st.markdown('<div class="acc-'+acc+'" style="text-align:right;font-family:var(--mono);font-size:0.76rem;padding-top:20px">'+str(len(pending))+' pending</div>', unsafe_allow_html=True)
+    with c2: st.markdown('<div class="pending-count acc-'+acc+'">'+str(len(pending))+' pending</div>', unsafe_allow_html=True)
 
     if not signals: st.markdown('<div class="empty">No signals yet<br>Run fetcher.py to pull latest data</div>', unsafe_allow_html=True)
     elif not pending: st.markdown('<div class="empty">All signals reviewed<br>Check back after next refresh</div>', unsafe_allow_html=True)
@@ -646,10 +663,11 @@ elif tab == 'positions':
             pnl_cls = 'acc-green' if pnl >= 0 else 'acc-red'
             log = log_by_sym.get(p.symbol, {}); c = log.get('category',''); inv = log.get('investors','')
             cat_hex = CATEGORIES.get(c,{}).get('hex','')
-            cat_tag = ('<span style="font-size:0.55rem;font-family:var(--mono);color:'+cat_hex+';background:rgba(255,255,255,0.04);border:1px solid var(--bdr);border-radius:4px;padding:1px 5px;margin-left:6px">'+c.upper()+'</span>') if c and cat_hex else ''
+            cat_acc_cls = CATEGORIES.get(c, {}).get('acc', '')
+            cat_tag = ('<span class="pos-cat-tag acc-'+cat_acc_cls+'">'+c.upper()+'</span>') if c and cat_acc_cls else ''
             lurl = logo_url(p.symbol)
             logo_bit = '<img src="'+lurl+'" style="width:20px;height:20px;border-radius:5px;margin-right:7px;vertical-align:middle" onerror="this.style.display=\'none\'" alt="">' if lurl else ''
-            st.markdown('<div class="pos-row"><div><div class="pos-sym">'+logo_bit+p.symbol+cat_tag+'</div><div class="pos-meta">'+'{:.4f}'.format(float(p.qty))+' sh &middot; $'+'{:,.2f}'.format(float(p.current_price))+' &middot; '+(inv[:35] or '—')+'</div></div><div style="text-align:right"><div class="'+pnl_cls+'" style="font-family:var(--mono);font-size:0.9rem;font-weight:600">$'+'{:+,.2f}'.format(pnl)+'</div><div class="'+pnl_cls+'" style="font-family:var(--mono);font-size:0.66rem">'+'{:+.2f}'.format(pct)+'%</div><div style="font-size:0.59rem;color:var(--sub);margin-top:1px">$'+'{:,.2f}'.format(mval)+' mkt</div></div></div>', unsafe_allow_html=True)
+            st.markdown('<div class="pos-row"><div><div class="pos-sym">'+logo_bit+p.symbol+cat_tag+'</div><div class="pos-meta">'+'{:.4f}'.format(float(p.qty))+' sh &middot; $'+'{:,.2f}'.format(float(p.current_price))+' &middot; '+(inv[:35] or '—')+'</div></div><div style="text-align:right"><div class="pos-pnl-main '+pnl_cls+'">$'+'{:+,.2f}'.format(pnl)+'</div><div class="pos-pnl-pct '+pnl_cls+'">'+'{:+.2f}'.format(pct)+'%</div><div class="pos-mkt">$'+'{:,.2f}'.format(mval)+' mkt</div></div></div>', unsafe_allow_html=True)
     st.markdown('<br>', unsafe_allow_html=True)
     if st.button('Refresh positions', use_container_width=True): st.cache_data.clear(); st.rerun()
 
@@ -671,7 +689,7 @@ elif tab == 'leaderboard':
         pnl = cat_pnl.get(cat_key); pnl_str = ''
         if pnl is not None:
             pnl_cls = 'acc-green' if pnl >= 0 else 'acc-red'
-            pnl_str = '  <span class="'+pnl_cls+'" style="font-family:var(--mono);font-size:0.66rem">$'+'{:+,.2f}'.format(pnl)+'</span>'
+            pnl_str = '  <span class="lb-pnl '+pnl_cls+'">$'+'{:+,.2f}'.format(pnl)+'</span>'
         holder_scores: dict = {}
         for sg in signals:
             for inv in sg.get('investors','').split(','):
@@ -683,6 +701,6 @@ elif tab == 'leaderboard':
         rank_classes = ['acc-gold','acc-silver','acc-bronze']
         for i, (name, score) in enumerate(ranked[:7]):
             bar_pct = int((score/max_score)*100); rank_cls = rank_classes[i] if i < 3 else 'acc-muted'
-            st.markdown('<div class="lb-row"><span class="lb-rank '+rank_cls+'">#'+'{:02d}'.format(i+1)+'</span><div style="flex:1"><div class="lb-name">'+name+'</div><div class="btrack" style="margin:4px 0 0"><div class="bar-'+acc+'" style="position:absolute;top:0;left:0;height:2px;border-radius:2px;opacity:0.65;width:'+str(bar_pct)+'%"></div></div></div><span class="acc-'+acc+'" style="font-family:var(--mono);font-size:0.79rem">'+'{:.1f}'.format(score)+'</span></div>', unsafe_allow_html=True)
+            st.markdown('<div class="lb-row"><span class="lb-rank '+rank_cls+'">#'+'{:02d}'.format(i+1)+'</span><div style="flex:1"><div class="lb-name">'+name+'</div><div class="btrack" style="margin:4px 0 0"><div class="bar-'+acc+'" style="position:absolute;top:0;left:0;height:2px;border-radius:2px;opacity:0.65;width:'+str(bar_pct)+'%"></div></div></div><span class="lb-score-val acc-'+acc+'">'+'{:.1f}'.format(score)+'</span></div>', unsafe_allow_html=True)
     st.markdown('<br>', unsafe_allow_html=True)
     if st.button('Refresh all data', use_container_width=True): st.cache_data.clear(); st.rerun()
