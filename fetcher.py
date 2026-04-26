@@ -238,9 +238,11 @@ def fetch_13f_holdings(key, info, top_n=25):
         recent = subs['filings']['recent']
 
         accession = None
-        for i, form in enumerate(recent['form']):
+        filing_date = None
+    for i, form in enumerate(recent['form']):
             if form == '13F-HR':
-                accession = recent['accessionNumber'][i].replace('-', '')
+                accession   = recent['accessionNumber'][i].replace('-', '')
+                filing_date = recent['filingDate'][i]
                 break
 
         if not accession:
@@ -281,8 +283,11 @@ def fetch_13f_holdings(key, info, top_n=25):
             })
         holdings.sort(key=lambda x: x['value'], reverse=True)
         time.sleep(0.6)
-        print(f"  {name}: {min(len(holdings), top_n)} holdings")
-        return holdings[:top_n]
+        print(f"  {name}: {min(len(holdings), top_n)} holdings (filed {filing_date})")
+        result = holdings[:top_n]
+        for h in result:
+            h['filing_date'] = filing_date
+        return result
 
     except Exception as e:
         print(f"  {name}: {e}")
@@ -417,12 +422,13 @@ def holdings_to_trades(holdings, holder_name, weight, category):
         score_contrib = round(pct * weight * rank_bonus * 100, 4)
 
         trades.append({
-            'ticker':   ticker,
-            'name':     h['name'],
-            'holder':   holder_name,
-            'side':     'buy',
-            'score':    score_contrib,
-            'category': category,
+            'ticker':      ticker,
+            'name':        h['name'],
+            'holder':      holder_name,
+            'side':        'buy',
+            'score':       score_contrib,
+            'category':    category,
+            'filing_date': h.get('filing_date', ''),
         })
 
     return trades
@@ -512,12 +518,24 @@ def score_athlete_trades(athlete_portfolios):
 # BUILD SUGGESTIONS
 # ─────────────────────────────────────────────
 
-def build_suggestions(ranked, holder_meta, category, top_n=10):
+def build_suggestions(ranked, holder_meta, category, top_n=10, trades_by_holder=None):
     suggestions = []
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     for ticker, entry in ranked[:top_n]:
         holders = entry['holders']
         names   = [holder_meta[k]['name'] for k in holders if k in holder_meta]
+
+        # For CEO/sector categories, surface the filing date of the most recent 13F
+        data_as_of = ''
+        if trades_by_holder and category in ('ceos', 'sectors'):
+            dates = []
+            for k in holders:
+                for t in (trades_by_holder.get(k) or []):
+                    if t.get('ticker') == ticker and t.get('filing_date'):
+                        dates.append(t['filing_date'])
+            if dates:
+                data_as_of = max(dates)
+
         suggestions.append({
             'pk':         f'suggestion#{category}#{ticker}',
             'sk':         today,
@@ -528,6 +546,7 @@ def build_suggestions(ranked, holder_meta, category, top_n=10):
             'buy_count':  entry['buy_count'],
             'investors':  ', '.join(names),
             'category':   category,
+            'data_as_of': data_as_of,
             'action':     'BUY',
             'status':     'pending',
             'created':    datetime.now(timezone.utc).isoformat(),
@@ -551,6 +570,14 @@ if __name__ == '__main__':
     ranked_pol = score_politician_trades(pol_trades)
     all_suggestions['politicians'] = build_suggestions(ranked_pol, POLITICIANS, 'politicians')
 
+    # Health check — warn if any politician returned 0 signals
+    warnings = [info['name'] for key, info in POLITICIANS.items() if len(pol_trades.get(key, [])) == 0]
+    if warnings:
+        msg = f"[HEALTH WARNING] 0 signals for: {', '.join(warnings)} — Capitol Trades layout may have changed"
+        print(msg)
+        with open(HERE / 'fetcher.log', 'a') as flog:
+            flog.write(f"{datetime.now(timezone.utc).isoformat()} {msg}\n")
+
     # ── 2. CEOs ──
     print("\n== CEOs ==")
     ceo_trades = {}
@@ -559,7 +586,7 @@ if __name__ == '__main__':
         holdings = fetch_13f_holdings(key, info, top_n=20)
         ceo_trades[key] = holdings_to_trades(holdings, info['name'], info['weight'], 'ceos')
     ranked_ceo = score_weighted_trades(ceo_trades, CEOS)
-    all_suggestions['ceos'] = build_suggestions(ranked_ceo, CEOS, 'ceos')
+    all_suggestions['ceos'] = build_suggestions(ranked_ceo, CEOS, 'ceos', trades_by_holder=ceo_trades)
 
     # ── 3. ATHLETES ──
     print("\n== ATHLETES ==")

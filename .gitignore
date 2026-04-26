@@ -2,6 +2,8 @@
 suggestions.json
 politician_trades.json
 decisions.json
+trade_log.json
+fetcher.log
 
 # Secrets
 .env

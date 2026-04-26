@@ -284,6 +284,7 @@ div.stButton > button[kind="primary"] {
 # ─────────────────────────────────────────────
 
 DECISIONS_FILE = HERE / 'decisions.json'
+TRADE_LOG_FILE = HERE / 'trade_log.json'
 
 def load_decisions():
     try:
@@ -294,6 +295,18 @@ def load_decisions():
 def save_decisions(d):
     with open(DECISIONS_FILE, 'w') as f:
         json.dump(d, f)
+
+def load_trade_log():
+    try:
+        return json.load(open(TRADE_LOG_FILE))
+    except Exception:
+        return []
+
+def append_trade_log(entry):
+    log = load_trade_log()
+    log.append(entry)
+    with open(TRADE_LOG_FILE, 'w') as f:
+        json.dump(log, f, indent=2)
 
 @st.cache_resource
 def get_client():
@@ -310,7 +323,7 @@ def get_trade_notional():
         return max(10.0, round(float(acct.equity) * 0.005, 2))
     return 500.0
 
-def place_order(symbol):
+def place_order(symbol, category='', investors=''):
     client = get_client()
     if not client:
         return False, "Alpaca credentials not configured", None
@@ -321,14 +334,22 @@ def place_order(symbol):
             side=OrderSide.BUY, time_in_force=TimeInForce.DAY
         )
         order = client.submit_order(req)
-        # Poll once for fill status (max 2s)
         import time as _t
         _t.sleep(1.5)
         try:
-            o = client.get_order_by_id(order.id)
+            o      = client.get_order_by_id(order.id)
             status = str(o.status).split('.')[-1].lower()
         except Exception:
             status = 'submitted'
+        append_trade_log({
+            'ticker':    symbol,
+            'category':  category,
+            'investors': investors,
+            'notional':  notional,
+            'order_id':  str(order.id),
+            'status':    status,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+        })
         return True, f"id {str(order.id)[:8]}  ·  {status}", notional
     except Exception as e:
         return False, str(e), None
@@ -403,6 +424,13 @@ for key, default in [
 
 if 'decisions' not in st.session_state:
     st.session_state.decisions = load_decisions()
+
+# Auto-refresh every 30 minutes
+try:
+    from streamlit_autorefresh import st_autorefresh
+    st_autorefresh(interval=30 * 60 * 1000, key="autorefresh")
+except ImportError:
+    pass
 
 
 # ─────────────────────────────────────────────
@@ -515,8 +543,9 @@ if st.session_state.tab == 'feed':
         bar_pct    = min(100, int((conviction / total) * 100))
         conf_label, conf_color = confidence_label(conviction, total, score)
 
-        pills = ''.join(f'<span class="pill">{p.strip()}</span>' for p in investors.split(',') if p.strip())
-        profile = TICKER_PROFILES.get(ticker, {})
+        pills      = ''.join(f'<span class="pill">{p.strip()}</span>' for p in investors.split(',') if p.strip())
+        profile    = TICKER_PROFILES.get(ticker, {})
+        data_as_of = s.get('data_as_of', '')
 
         st.markdown(f"""
         <div class="card">
@@ -529,6 +558,7 @@ if st.session_state.tab == 'feed':
             <span class="score-badge" style="color:{accent};border-color:{accent}33;background:{accent}0a">{score:.2f}</span>
           </div>
           {f'<div style="font-size:0.72rem;color:var(--subtext);margin-bottom:8px">{profile.get("company","")} &nbsp;·&nbsp; {profile.get("sector","")}</div>' if profile else ''}
+          {f'<div style="font-size:0.6rem;color:var(--muted);margin-bottom:6px">Holdings as of {data_as_of}</div>' if data_as_of else ''}
           <div class="holder-pills">{pills}</div>
           <div class="bar-track"><div style="height:2px;border-radius:2px;background:{accent};width:{bar_pct}%"></div></div>
           <div class="stats">
@@ -604,7 +634,7 @@ if st.session_state.tab == 'feed':
         with btn_a:
             notional_preview = get_trade_notional()
             if st.button(f"APPROVE  ${notional_preview:,.0f}", key=f"approve_{cat}_{ticker}", use_container_width=True):
-                ok, result, notional = place_order(ticker)
+                ok, result, notional = place_order(ticker, category=cat, investors=investors)
                 st.session_state.decisions[f"{cat}_{ticker}"] = 'approved'
                 save_decisions(st.session_state.decisions)
                 if ok:
@@ -638,7 +668,15 @@ if st.session_state.tab == 'feed':
 # ─────────────────────────────────────────────
 
 elif st.session_state.tab == 'positions':
-    positions = load_positions()
+    positions  = load_positions()
+    trade_log  = load_trade_log()
+    # Build lookup: ticker -> most recent trade log entry
+    log_by_ticker = {}
+    for entry in trade_log:
+        log_by_ticker[entry['ticker']] = entry
+
+    CAT_COLOURS = {'politicians': '#00e87a', 'ceos': '#4a9eff', 'athletes': '#f5a623', 'sectors': '#9b6dff'}
+
     if not positions:
         st.markdown('<div class="empty">No open positions<br>Approve signals in the Feed to place trades</div>', unsafe_allow_html=True)
     else:
@@ -647,14 +685,19 @@ elif st.session_state.tab == 'positions':
         st.markdown(f'<div class="section-label">Open positions &nbsp;·&nbsp; Unrealized P&amp;L <span class="{pnl_cls}">${total_pnl:+,.2f}</span></div>', unsafe_allow_html=True)
 
         for p in sorted(positions, key=lambda x: float(x.unrealized_pl), reverse=True):
-            pnl = float(p.unrealized_pl)
-            pct = float(p.unrealized_plpc) * 100
-            cls = 'pnl-pos' if pnl >= 0 else 'pnl-neg'
+            pnl  = float(p.unrealized_pl)
+            pct  = float(p.unrealized_plpc) * 100
+            cls  = 'pnl-pos' if pnl >= 0 else 'pnl-neg'
+            log  = log_by_ticker.get(p.symbol, {})
+            cat  = log.get('category', '')
+            inv  = log.get('investors', '')
+            acc  = CAT_COLOURS.get(cat, '#6e6e90')
+            tag  = f'<span style="font-size:0.58rem;font-family:var(--mono);color:{acc};background:{acc}14;border:1px solid {acc}30;border-radius:3px;padding:1px 5px;margin-left:6px">{cat.upper()}</span>' if cat else ''
             st.markdown(f"""
             <div class="pos-row">
               <div>
-                <div class="pos-sym">{p.symbol}</div>
-                <div class="pos-detail">{float(p.qty):.4f} shares &nbsp;·&nbsp; ${float(p.current_price):,.2f}</div>
+                <div class="pos-sym">{p.symbol}{tag}</div>
+                <div class="pos-detail">{float(p.qty):.4f} sh &nbsp;·&nbsp; ${float(p.current_price):,.2f} &nbsp;·&nbsp; {inv[:40] if inv else '—'}</div>
               </div>
               <div style="text-align:right">
                 <div class="{cls}">${pnl:+,.2f}</div>
@@ -673,6 +716,19 @@ elif st.session_state.tab == 'positions':
 
 elif st.session_state.tab == 'leaderboard':
     all_suggestions = load_suggestions()
+    trade_log       = load_trade_log()
+    positions       = load_positions()
+
+    # Build P&L lookup by ticker
+    pnl_by_ticker = {p.symbol: float(p.unrealized_pl) for p in positions}
+
+    # Category-level P&L: sum unrealised P&L for all positions sourced from that category
+    cat_pnl: dict = {}
+    for entry in trade_log:
+        cat = entry.get('category', '')
+        sym = entry.get('ticker', '')
+        if cat and sym in pnl_by_ticker:
+            cat_pnl[cat] = cat_pnl.get(cat, 0.0) + pnl_by_ticker[sym]
 
     for cat_key, cat_info in CATEGORIES.items():
         accent      = cat_info['accent']
@@ -680,7 +736,9 @@ elif st.session_state.tab == 'leaderboard':
         if not suggestions:
             continue
 
-        # Aggregate score per investor/holder
+        pnl      = cat_pnl.get(cat_key, None)
+        pnl_str  = f'&nbsp;·&nbsp; <span style="color:{"#00e87a" if (pnl or 0)>=0 else "#ff3f5e"};font-family:var(--mono)">${pnl:+,.2f}</span>' if pnl is not None else ''
+
         holder_scores: dict = {}
         for s in suggestions:
             for inv in s.get('investors', '').split(','):
@@ -691,7 +749,7 @@ elif st.session_state.tab == 'leaderboard':
         ranked    = sorted(holder_scores.items(), key=lambda x: x[1], reverse=True)
         max_score = ranked[0][1] if ranked else 1
 
-        st.markdown(f'<div class="section-label" style="border-color:{accent}30">{cat_info["label"].upper()}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="section-label" style="border-color:{accent}30">{cat_info["label"].upper()}{pnl_str}</div>', unsafe_allow_html=True)
 
         for i, (name, score) in enumerate(ranked[:7]):
             bar_pct = int((score / max_score) * 100)
