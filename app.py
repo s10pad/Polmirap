@@ -11,7 +11,7 @@ from knowledge import TICKER_PROFILES, TICKER_DOMAIN, TRADER_BIOS, SCORING_EXPLA
 
 HERE = Path(__file__).parent
 
-st.set_page_config(page_title="MIRROR AI", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="MIRROR AI", layout="wide", initial_sidebar_state="expanded")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CSS  — fixed topbar + CSS-only slide drawer (checkbox hack, iframe-safe)
@@ -52,31 +52,36 @@ html, body,
 
 /* Hide all Streamlit chrome and native sidebar */
 [data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"],
-[data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"],
-[data-testid="stSidebar"],#MainMenu,footer { display:none !important; }
+#MainMenu,footer { display:none !important; }
 
-/* Main content — leave room for 56px topbar only */
+[data-testid="stSidebar"] {
+  background:#07101f !important;
+  border-right:1px solid rgba(255,255,255,0.07) !important;
+}
+[data-testid="stSidebar"] > div:first-child { padding:0 8px !important; }
+[data-testid="stSidebarCollapseButton"] button {
+  background:rgba(0,212,170,0.07) !important;
+  border:1px solid rgba(0,212,170,0.2) !important;
+  color:#00d4aa !important;
+}
+
+/* Main content */
 [data-testid="stMainBlockContainer"] {
-  padding: 68px 28px 80px !important;
+  padding: 8px 28px 80px !important;
   max-width: 900px !important;
 }
-/* The component iframe sits fixed at top; collapse its layout height to 0
-   so it doesn't push content down. The topbar/drawer use position:fixed
-   inside the iframe and escape the iframe stacking context via z-index. */
+/* Collapse the topbar component iframe height to exactly 56px — no more */
 [data-testid="stCustomComponentV1"] {
-  position: fixed !important;
-  top: 0 !important; left: 0 !important; right: 0 !important;
-  height: 100vh !important;
-  z-index: 9000 !important;
-  pointer-events: none !important;
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+  overflow: hidden !important;
   border: none !important;
+  margin-bottom: 8px !important;
 }
 [data-testid="stCustomComponentV1"] iframe {
-  width: 100% !important;
-  height: 100vh !important;
+  height: 56px !important;
   border: none !important;
-  pointer-events: auto !important;
-  background: transparent !important;
 }
 
 /* ── TOPBAR ── */
@@ -425,36 +430,15 @@ _topbar_html = """<!DOCTYPE html>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Space+Mono:wght@400;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:transparent;font-family:'Space Grotesk',sans-serif;overflow:hidden;}
-
-#drw-chk{display:none;}
-
+html,body{height:56px;overflow:hidden;background:#04080f;}
 #topbar{
-  position:fixed;top:0;left:0;right:0;height:56px;
-  background:rgba(4,8,15,0.97);
+  height:56px;background:rgba(4,8,15,0.97);
   border-bottom:1px solid rgba(255,255,255,0.08);
-  backdrop-filter:blur(18px);
   display:flex;align-items:center;padding:0 16px;gap:12px;
-  z-index:100;
 }
-#ham{
-  width:40px;height:40px;border-radius:8px;flex-shrink:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-  cursor:pointer;border:1px solid transparent;
-  transition:border-color .18s,background .18s;
-}
-#ham:hover{border-color:#00d4aa;background:rgba(0,212,170,.08);}
-#ham span{display:block;width:18px;height:1.5px;background:#7c8fad;border-radius:2px;transition:transform .25s,opacity .2s,background .18s;}
-#drw-chk:checked ~ #topbar #ham span:nth-child(1){transform:translateY(6.5px) rotate(45deg);background:#00d4aa;}
-#drw-chk:checked ~ #topbar #ham span:nth-child(2){opacity:0;}
-#drw-chk:checked ~ #topbar #ham span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);background:#00d4aa;}
-
 #logo{
   font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;
-  letter-spacing:.22em;
-  background:linear-gradient(90deg,#00d4aa,#38bdf8);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-  margin-right:auto;
+  letter-spacing:.22em;margin-right:auto;color:#00d4aa;
 }
 #chip{
   font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.05em;
@@ -462,171 +446,91 @@ body{background:transparent;font-family:'Space Grotesk',sans-serif;overflow:hidd
   background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.22);
   color:#00d4aa;white-space:nowrap;
 }
-#chip .pnl{color:PNL_COL;font-size:.55rem;opacity:.8;}
-
-#overlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.6);
-  z-index:98;cursor:pointer;
-  backdrop-filter:blur(2px);
-}
-#drw-chk:checked ~ #overlay{display:block;}
-
-#drawer{
-  position:fixed;top:56px;left:0;bottom:0;width:272px;
-  background:#07101f;border-right:1px solid rgba(255,255,255,.07);
-  transform:translateX(-272px);
-  transition:transform .28s cubic-bezier(.4,0,.2,1);
-  z-index:99;overflow-y:auto;padding:20px 0 40px;
-}
-#drw-chk:checked ~ #drawer{transform:translateX(0);}
-
-.sec{font-family:'Space Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:#3a4a62;padding:14px 20px 5px;}
-.div{height:1px;background:rgba(255,255,255,.07);margin:10px 18px;}
-.port-card{margin:0 14px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 15px;}
-.port-lbl{font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:#3a4a62;font-family:'Space Mono',monospace;}
-.port-eq{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700;color:#00d4aa;margin:5px 0;}
-.port-row{display:flex;justify-content:space-between;font-size:.62rem;margin-top:4px;color:#7c8fad;}
-.port-row span:last-child{font-family:'Space Mono',monospace;color:#e2e8f0;}
-.port-row .pnl-val{color:PNL_COL;}
-.port-row .green{color:#00d4aa;}
-.hint{font-size:.62rem;color:#3a4a62;padding:8px 20px 4px;font-family:'Space Mono',monospace;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:.82rem;color:#7c8fad;border-left:2px solid transparent;transition:all .15s;}
-.nav-item:hover{color:#e2e8f0;background:rgba(255,255,255,.03);}
-.nav-item.active{color:#00d4aa;border-left-color:#00d4aa;background:rgba(0,212,170,.05);}
-.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.fresh{font-family:'Space Mono',monospace;font-size:.5rem;color:#3a4a62;padding:4px 20px 12px;}
+.pnl{font-size:.55rem;opacity:.8;color:PNL_COL;}
 </style>
 </head>
 <body>
-<input type="checkbox" id="drw-chk">
-
 <div id="topbar">
-  <label for="drw-chk" id="ham"><span></span><span></span><span></span></label>
   <div id="logo">MIRROR AI</div>
-  <div id="chip">EQ_STR <span class="pnl">PNL_STR</span></div>
+  <div id="chip">EQ_STR &nbsp;<span class="pnl">PNL_STR</span></div>
 </div>
-
-<label for="drw-chk" id="overlay" onclick=""></label>
-
-<div id="drawer">
-  <div class="sec">Portfolio</div>
-  <div class="port-card">
-    <div class="port-lbl">Account</div>
-    <div class="port-eq">EQ_STR</div>
-    <div class="port-row"><span>Buying power</span><span>BP_STR</span></div>
-    <div class="port-row"><span>Today P&L</span><span class="pnl-val">PNL_STR</span></div>
-    <div class="port-row"><span>Trade size</span><span class="green">NOT_STR</span></div>
-  </div>
-  <div class="div"></div>
-  <div class="sec">Navigate</div>
-  <div class="nav-item NAV_FEED" onclick="go('feed','')"><div class="dot" style="background:#00d4aa"></div>Signal Feed</div>
-  <div class="nav-item NAV_POS" onclick="go('positions','')"><div class="dot" style="background:#38bdf8"></div>Positions</div>
-  <div class="nav-item NAV_LB" onclick="go('leaderboard','')"><div class="dot" style="background:#a78bfa"></div>Leaderboard</div>
-  <div class="div"></div>
-  <div class="sec">Category</div>
-  <div class="nav-item CAT_POL" onclick="go('feed','politicians')"><div class="dot" style="background:#00d4aa"></div>Politicians</div>
-  <div class="nav-item CAT_CEO" onclick="go('feed','ceos')"><div class="dot" style="background:#38bdf8"></div>Superinvestors</div>
-  <div class="nav-item CAT_ATH" onclick="go('feed','athletes')"><div class="dot" style="background:#ffa502"></div>Athletes</div>
-  <div class="nav-item CAT_SEC" onclick="go('feed','sectors')"><div class="dot" style="background:#a78bfa"></div>Sectors</div>
-  <div class="div"></div>
-  <div class="fresh">Data: FRESH_STR</div>
-</div>
-
-<script>
-function go(tab, cat) {
-  var url = new URL(parent.window.location.href);
-  url.searchParams.set('_tab', tab);
-  if (cat) url.searchParams.set('_cat', cat);
-  parent.window.location.href = url.toString();
-}
-</script>
 </body>
 </html>"""
 
-# Substitute Python values into the HTML template (no curly braces used)
 _topbar_html = _topbar_html.replace('EQ_STR', eq_str)
-_topbar_html = _topbar_html.replace('BP_STR', bp_str)
 _topbar_html = _topbar_html.replace('PNL_STR', pnl_str2)
 _topbar_html = _topbar_html.replace('PNL_COL', pnl_col)
-_topbar_html = _topbar_html.replace('NOT_STR', notional_str)
-_topbar_html = _topbar_html.replace('FRESH_STR', fresh)
 tab_now = st.session_state.tab
 cat_now = st.session_state.category
-_topbar_html = _topbar_html.replace('NAV_FEED', 'active' if tab_now == 'feed' else '')
+# (no other replacements needed — drawer is now in Streamlit sidebar)
 _topbar_html = _topbar_html.replace('NAV_POS',  'active' if tab_now == 'positions' else '')
-_topbar_html = _topbar_html.replace('NAV_LB',   'active' if tab_now == 'leaderboard' else '')
-_topbar_html = _topbar_html.replace('CAT_POL',  'active' if cat_now == 'politicians' else '')
-_topbar_html = _topbar_html.replace('CAT_CEO',  'active' if cat_now == 'ceos' else '')
-_topbar_html = _topbar_html.replace('CAT_ATH',  'active' if cat_now == 'athletes' else '')
-_topbar_html = _topbar_html.replace('CAT_SEC',  'active' if cat_now == 'sectors' else '')
-
-# height=1 — the iframe self-expands to full viewport via JS below.
-# The topbar and drawer are position:fixed so they escape normal flow.
-# We inject a script that sets the parent iframe height to window.innerHeight.
-_topbar_html_final = _topbar_html + """
-<script>
-// Expand the Streamlit component iframe to cover full viewport
-// so position:fixed children (topbar, drawer, overlay) render correctly.
-(function() {
-  function resize() {
-    var h = window.innerHeight || document.documentElement.clientHeight || 800;
-    // Tell the parent Streamlit frame to resize this component
-    window.parent.postMessage({type:'streamlit:setFrameHeight', height: h}, '*');
-  }
-  resize();
-  window.addEventListener('resize', resize);
-})();
-</script>"""
-_components.html(_topbar_html_final, height=800, scrolling=False)
-
-# Read nav params set by the drawer JS
-params = st.query_params
-if '_tab' in params:
-    new_tab = params['_tab']
-    new_cat = params.get('_cat', st.session_state.category)
-    changed = (new_tab != st.session_state.tab or new_cat != st.session_state.category)
-    st.session_state.tab = new_tab
-    if new_cat: st.session_state.category = new_cat
-    if changed:
-        st.query_params.clear()
-        st.rerun()
+_components.html(_topbar_html, height=56, scrolling=False)
 
 # ─────────────────────────────────────────────
-# STREAMLIT NAV — real buttons, always visible below topbar
+# SIDEBAR — styled as the slide-in drawer (Streamlit native, no iframe issues)
+# User opens it with the Streamlit arrow button (top-left of sidebar)
 # ─────────────────────────────────────────────
-st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+with st.sidebar:
+    st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+    # Portfolio card
+    if acct:
+        st.markdown(
+            '<div class="port-card">'
+            '<div class="port-lbl">Portfolio</div>'
+            '<div class="port-eq">' + eq_str + '</div>'
+            '<div class="port-row"><span>Buying power</span><span class="drw-val">' + bp_str + '</span></div>'
+            '<div class="port-row"><span>Today P&L</span><span class="drw-val ' + ('acc-green' if pnl >= 0 else 'acc-red') + '">' + pnl_str2 + '</span></div>'
+            '<div class="port-row"><span>Trade size</span><span class="drw-val acc-green">' + notional_str + '</span></div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
+    st.markdown('<div style="height:4px;border-top:1px solid rgba(255,255,255,0.07);margin:4px 0"></div>', unsafe_allow_html=True)
+
+    for tk, tl in [('feed', 'Signal Feed'), ('positions', 'Positions'), ('leaderboard', 'Leaderboard')]:
+        if st.button(tl, key='nav_' + tk, use_container_width=True,
+                     type='primary' if st.session_state.tab == tk else 'secondary'):
+            st.session_state.tab = tk; st.rerun()
+
+    if st.session_state.tab == 'feed':
+        st.markdown('<div style="height:4px;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 4px"></div>', unsafe_allow_html=True)
+        for ck, ci in CATEGORIES.items():
+            dot = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + ci['hex'] + ';margin-right:8px;vertical-align:middle"></span>'
+            if st.button(dot + ci['label'], key='cat_' + ck, use_container_width=True,
+                         type='primary' if st.session_state.category == ck else 'secondary'):
+                st.session_state.category = ck; st.rerun()
+
+    st.markdown('<div style="height:4px;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0 4px"></div>', unsafe_allow_html=True)
+    new_pct = st.slider('Trade %', 0.1, 5.0, float(_pct), 0.1, format='%.1f%%')
+    if new_pct != _pct:
+        st.session_state.trade_pct = new_pct; _notional = get_trade_notional(new_pct); st.rerun()
+
+    st.markdown('<div style="font-size:0.55rem;color:#3a4a62;font-family:Space Mono,monospace;padding:4px 0">Data: ' + fresh + '</div>', unsafe_allow_html=True)
+    if st.button('Refresh data', key='refresh', use_container_width=True):
+        st.cache_data.clear(); st.rerun()
+
+# Tab buttons in main area
 tab_col1, tab_col2, tab_col3, spacer = st.columns([1, 1, 1, 4])
 with tab_col1:
-    if st.button('Feed', key='nav_feed', use_container_width=True,
+    if st.button('Feed', key='mt_feed', use_container_width=True,
                  type='primary' if st.session_state.tab == 'feed' else 'secondary'):
         st.session_state.tab = 'feed'; st.rerun()
 with tab_col2:
-    if st.button('Positions', key='nav_pos', use_container_width=True,
+    if st.button('Positions', key='mt_pos', use_container_width=True,
                  type='primary' if st.session_state.tab == 'positions' else 'secondary'):
         st.session_state.tab = 'positions'; st.rerun()
 with tab_col3:
-    if st.button('Leaderboard', key='nav_lb', use_container_width=True,
+    if st.button('Leaderboard', key='mt_lb', use_container_width=True,
                  type='primary' if st.session_state.tab == 'leaderboard' else 'secondary'):
         st.session_state.tab = 'leaderboard'; st.rerun()
 
-# Category row (only in feed)
 if st.session_state.tab == 'feed':
     cc = st.columns(len(CATEGORIES))
     for i, (ck, ci) in enumerate(CATEGORIES.items()):
         with cc[i]:
-            if st.button(ci['label'], key='cat_' + ck, use_container_width=True,
+            if st.button(ci['label'], key='mcat_' + ck, use_container_width=True,
                          type='primary' if st.session_state.category == ck else 'secondary'):
                 st.session_state.category = ck; st.rerun()
-
-# Trade size slider
-with st.expander('Trade size: ' + '{:.1f}'.format(_pct) + '% of equity  =  $' + '{:,.0f}'.format(_notional), expanded=False):
-    new_pct = st.slider('Trade %', 0.1, 5.0, float(_pct), 0.1, format='%.1f%%', label_visibility='collapsed')
-    if new_pct != _pct:
-        st.session_state.trade_pct = new_pct
-        _notional = get_trade_notional(new_pct)
-        st.rerun()
 
 # ─────────────────────────────────────────────
 # TOASTS
