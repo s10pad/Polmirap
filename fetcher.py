@@ -239,7 +239,7 @@ def fetch_13f_holdings(key, info, top_n=25):
 
         accession = None
         filing_date = None
-    for i, form in enumerate(recent['form']):
+        for i, form in enumerate(recent['form']):
             if form == '13F-HR':
                 accession   = recent['accessionNumber'][i].replace('-', '')
                 filing_date = recent['filingDate'][i]
