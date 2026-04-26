@@ -9,11 +9,23 @@ This file is our shared working document. Every significant decision, open quest
 | Item | Status |
 |---|---|
 | App running on EC2 | LIVE — http://18.234.219.234:8501 |
+| EC2 IP (resets on reboot) | 18.234.219.234 |
 | Alpaca paper account | ACTIVE — $100,000 equity |
 | Data refresh cron | ACTIVE — weekdays 08:30 UTC |
 | Git repo | https://github.com/s10pad/Polmirap |
 | HTTPS / custom domain | NOT YET |
 | Lambda auto-trading | NOT DEPLOYED |
+
+---
+
+## Known UI Issues (unresolved as of session end)
+
+| Issue | Root cause | Fix needed |
+|---|---|---|
+| Topbar renders in a 56px iframe (st.components.v1.html) — drawer opens but sits inside the iframe, not over the full page | st.markdown sanitizes input/label tags; component iframe has its own stacking context | Use `height` large enough to cover full page or switch to a JS postMessage approach |
+| MIRROR BUY shows $500 when Alpaca equity = $100k × 0.5% = $500 — this is actually correct | 0.5% of $100k paper account = $500 | Explained to user; adjust slider to change amount |
+| Logos (Google favicon) load in browser but depend on outbound internet from user browser — not from EC2 | Clearbit blocked on EC2; Google favicons fetched client-side | Working correctly |
+| Sell signals not yet scraped from Capitol Trades | fetcher.py only scrapes BUY disclosures | Add SELL scraping to fetcher |
 
 ---
 
