@@ -630,6 +630,8 @@ if __name__ == '__main__':
 
     print("\n── Summary ──")
     for cat, sug in all_suggestions.items():
+        if not isinstance(sug, list):
+            continue
         print(f"  {cat:<15} {len(sug)} signals")
         for s in sug[:3]:
             print(f"    {s['ticker']:<8} score={s['score']:.2f}  {s['investors']}")
