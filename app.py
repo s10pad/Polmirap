@@ -40,8 +40,6 @@ st.markdown("""
   --muted:  #3a4a62;
   --mono:   'Space Mono', monospace;
   --sans:   'Space Grotesk', sans-serif;
-  --th:     56px;
-  --dw:     272px;
 }
 
 html, body,
@@ -57,10 +55,16 @@ html, body,
 [data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"],
 [data-testid="stSidebar"],#MainMenu,footer { display:none !important; }
 
-/* Push content below topbar */
+/* The component iframe for topbar is 56px tall; main content follows naturally */
 [data-testid="stMainBlockContainer"] {
-  padding: calc(var(--th) + 16px) 28px 80px !important;
+  padding: 8px 28px 80px !important;
   max-width: 900px !important;
+}
+/* Remove the component iframe border/margin */
+iframe[title="streamlit_components_v1_html"] {
+  display: block !important;
+  border: none !important;
+  margin: 0 !important;
 }
 
 /* ── TOPBAR ── */
@@ -372,11 +376,16 @@ _notional = get_trade_notional()
 _pct      = st.session_state.trade_pct
 
 # ─────────────────────────────────────────────
-# BUILD TOPBAR + DRAWER HTML (CSS-checkbox driven — works inside Streamlit iframe)
+# TOPBAR + DRAWER via st.components.v1.html()
+# This renders in its own sub-iframe with no HTML sanitization — input/label/
+# JS all work. Navigation is communicated back via URL query params set by JS
+# on the parent window.
 # ─────────────────────────────────────────────
+import streamlit.components.v1 as _components
+
 sug = load_suggestions()
 lu  = sug.get('last_updated')
-fresh = '—'
+fresh = 'No data'
 if lu:
     try:
         age = datetime.now(timezone.utc) - datetime.fromisoformat(lu)
@@ -385,58 +394,174 @@ if lu:
     except: pass
 
 acct = load_account()
-port_chip_html = ''
-drw_port_html  = ''
+eq_str = '$100,000'; bp_str = '$200,000'; pnl_str2 = '+$0.00'; pnl_col = '#00d4aa'
 if acct:
     eq  = float(acct.equity)
     bp  = float(acct.buying_power)
     pnl = eq - float(acct.last_equity)
-    pnl_col = '#00d4aa' if pnl >= 0 else '#ff4757'
-    pnl_cls = 'acc-green' if pnl >= 0 else 'acc-red'
-    pnl_sign = '+' if pnl >= 0 else ''
-    port_chip_html = (
-        '<div id="port-chip">$' + '{:,.0f}'.format(eq)
-        + ' <span class="port-pnl ' + pnl_cls + '">'
-        + pnl_sign + '{:,.2f}'.format(pnl) + '</span></div>'
-    )
-    drw_port_html = (
-        '<div class="drw-port">'
-        '<div class="drw-port-lbl">Portfolio</div>'
-        '<div class="drw-eq">$' + '{:,.0f}'.format(eq) + '</div>'
-        '<div class="drw-row"><span>Buying power</span><span class="drw-val">$' + '{:,.0f}'.format(bp) + '</span></div>'
-        '<div class="drw-row"><span>Today P&amp;L</span><span class="drw-val ' + pnl_cls + '">' + pnl_sign + '{:,.2f}'.format(pnl) + '</span></div>'
-        '<div class="drw-row"><span>Trade size</span><span class="drw-val acc-green">$' + '{:,.0f}'.format(_notional) + ' (' + '{:.1f}'.format(_pct) + '%)</span></div>'
-        '</div>'
-    )
+    pnl_col  = '#00d4aa' if pnl >= 0 else '#ff4757'
+    eq_str   = '$' + '{:,.0f}'.format(eq)
+    bp_str   = '$' + '{:,.0f}'.format(bp)
+    pnl_str2 = ('+' if pnl >= 0 else '') + '$' + '{:,.2f}'.format(abs(pnl))
 
-# The checkbox (#drw-toggle) must be a sibling BEFORE the topbar and drawer
-# so the CSS ~ sibling selector can control them.
-st.markdown(
-    # Hidden checkbox — the actual toggle mechanism
-    '<input type="checkbox" id="drw-toggle">'
+notional_str = '$' + '{:,.0f}'.format(_notional) + ' (' + '{:.1f}'.format(_pct) + '%)'
 
-    # Topbar
-    '<div id="mir-topbar">'
-      '<label id="drw-btn" for="drw-toggle" title="Menu">'
-        '<span></span><span></span><span></span>'
-      '</label>'
-      '<div id="mir-logo">MIRROR AI</div>'
-      + port_chip_html +
-    '</div>'
+_topbar_html = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Space+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:transparent;font-family:'Space Grotesk',sans-serif;overflow:hidden;}
 
-    # Overlay — clicking it unchecks the checkbox (closes drawer)
-    '<label id="drw-overlay" for="drw-toggle"></label>'
+#drw-chk{display:none;}
 
-    # Drawer
-    '<div id="mir-drawer">'
-      '<div class="drw-sec">Portfolio</div>'
-      + drw_port_html +
-      '<div class="drw-div"></div>'
-      '<div class="drw-sec">Data — ' + fresh + '</div>'
-      '<div class="drw-hint">Use the nav below to switch views</div>'
-    '</div>',
-    unsafe_allow_html=True,
-)
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:56px;
+  background:rgba(4,8,15,0.97);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(18px);
+  display:flex;align-items:center;padding:0 16px;gap:12px;
+  z-index:100;
+}
+#ham{
+  width:40px;height:40px;border-radius:8px;flex-shrink:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  cursor:pointer;border:1px solid transparent;
+  transition:border-color .18s,background .18s;
+}
+#ham:hover{border-color:#00d4aa;background:rgba(0,212,170,.08);}
+#ham span{display:block;width:18px;height:1.5px;background:#7c8fad;border-radius:2px;transition:transform .25s,opacity .2s,background .18s;}
+#drw-chk:checked ~ #topbar #ham span:nth-child(1){transform:translateY(6.5px) rotate(45deg);background:#00d4aa;}
+#drw-chk:checked ~ #topbar #ham span:nth-child(2){opacity:0;}
+#drw-chk:checked ~ #topbar #ham span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);background:#00d4aa;}
+
+#logo{
+  font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;
+  letter-spacing:.22em;
+  background:linear-gradient(90deg,#00d4aa,#38bdf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-right:auto;
+}
+#chip{
+  font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.05em;
+  padding:5px 12px;border-radius:6px;
+  background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.22);
+  color:#00d4aa;white-space:nowrap;
+}
+#chip .pnl{color:PNL_COL;font-size:.55rem;opacity:.8;}
+
+#overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:98;cursor:pointer;
+  backdrop-filter:blur(2px);
+}
+#drw-chk:checked ~ #overlay{display:block;}
+
+#drawer{
+  position:fixed;top:56px;left:0;bottom:0;width:272px;
+  background:#07101f;border-right:1px solid rgba(255,255,255,.07);
+  transform:translateX(-272px);
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  z-index:99;overflow-y:auto;padding:20px 0 40px;
+}
+#drw-chk:checked ~ #drawer{transform:translateX(0);}
+
+.sec{font-family:'Space Mono',monospace;font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;color:#3a4a62;padding:14px 20px 5px;}
+.div{height:1px;background:rgba(255,255,255,.07);margin:10px 18px;}
+.port-card{margin:0 14px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 15px;}
+.port-lbl{font-size:.5rem;letter-spacing:.15em;text-transform:uppercase;color:#3a4a62;font-family:'Space Mono',monospace;}
+.port-eq{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700;color:#00d4aa;margin:5px 0;}
+.port-row{display:flex;justify-content:space-between;font-size:.62rem;margin-top:4px;color:#7c8fad;}
+.port-row span:last-child{font-family:'Space Mono',monospace;color:#e2e8f0;}
+.port-row .pnl-val{color:PNL_COL;}
+.port-row .green{color:#00d4aa;}
+.hint{font-size:.62rem;color:#3a4a62;padding:8px 20px 4px;font-family:'Space Mono',monospace;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:.82rem;color:#7c8fad;border-left:2px solid transparent;transition:all .15s;}
+.nav-item:hover{color:#e2e8f0;background:rgba(255,255,255,.03);}
+.nav-item.active{color:#00d4aa;border-left-color:#00d4aa;background:rgba(0,212,170,.05);}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.fresh{font-family:'Space Mono',monospace;font-size:.5rem;color:#3a4a62;padding:4px 20px 12px;}
+</style>
+</head>
+<body>
+<input type="checkbox" id="drw-chk">
+
+<div id="topbar">
+  <label for="drw-chk" id="ham"><span></span><span></span><span></span></label>
+  <div id="logo">MIRROR AI</div>
+  <div id="chip">EQ_STR <span class="pnl">PNL_STR</span></div>
+</div>
+
+<label for="drw-chk" id="overlay" onclick=""></label>
+
+<div id="drawer">
+  <div class="sec">Portfolio</div>
+  <div class="port-card">
+    <div class="port-lbl">Account</div>
+    <div class="port-eq">EQ_STR</div>
+    <div class="port-row"><span>Buying power</span><span>BP_STR</span></div>
+    <div class="port-row"><span>Today P&L</span><span class="pnl-val">PNL_STR</span></div>
+    <div class="port-row"><span>Trade size</span><span class="green">NOT_STR</span></div>
+  </div>
+  <div class="div"></div>
+  <div class="sec">Navigate</div>
+  <div class="nav-item NAV_FEED" onclick="go('feed','')"><div class="dot" style="background:#00d4aa"></div>Signal Feed</div>
+  <div class="nav-item NAV_POS" onclick="go('positions','')"><div class="dot" style="background:#38bdf8"></div>Positions</div>
+  <div class="nav-item NAV_LB" onclick="go('leaderboard','')"><div class="dot" style="background:#a78bfa"></div>Leaderboard</div>
+  <div class="div"></div>
+  <div class="sec">Category</div>
+  <div class="nav-item CAT_POL" onclick="go('feed','politicians')"><div class="dot" style="background:#00d4aa"></div>Politicians</div>
+  <div class="nav-item CAT_CEO" onclick="go('feed','ceos')"><div class="dot" style="background:#38bdf8"></div>Superinvestors</div>
+  <div class="nav-item CAT_ATH" onclick="go('feed','athletes')"><div class="dot" style="background:#ffa502"></div>Athletes</div>
+  <div class="nav-item CAT_SEC" onclick="go('feed','sectors')"><div class="dot" style="background:#a78bfa"></div>Sectors</div>
+  <div class="div"></div>
+  <div class="fresh">Data: FRESH_STR</div>
+</div>
+
+<script>
+function go(tab, cat) {
+  var url = new URL(parent.window.location.href);
+  url.searchParams.set('_tab', tab);
+  if (cat) url.searchParams.set('_cat', cat);
+  parent.window.location.href = url.toString();
+}
+</script>
+</body>
+</html>"""
+
+# Substitute Python values into the HTML template (no curly braces used)
+_topbar_html = _topbar_html.replace('EQ_STR', eq_str)
+_topbar_html = _topbar_html.replace('BP_STR', bp_str)
+_topbar_html = _topbar_html.replace('PNL_STR', pnl_str2)
+_topbar_html = _topbar_html.replace('PNL_COL', pnl_col)
+_topbar_html = _topbar_html.replace('NOT_STR', notional_str)
+_topbar_html = _topbar_html.replace('FRESH_STR', fresh)
+tab_now = st.session_state.tab
+cat_now = st.session_state.category
+_topbar_html = _topbar_html.replace('NAV_FEED', 'active' if tab_now == 'feed' else '')
+_topbar_html = _topbar_html.replace('NAV_POS',  'active' if tab_now == 'positions' else '')
+_topbar_html = _topbar_html.replace('NAV_LB',   'active' if tab_now == 'leaderboard' else '')
+_topbar_html = _topbar_html.replace('CAT_POL',  'active' if cat_now == 'politicians' else '')
+_topbar_html = _topbar_html.replace('CAT_CEO',  'active' if cat_now == 'ceos' else '')
+_topbar_html = _topbar_html.replace('CAT_ATH',  'active' if cat_now == 'athletes' else '')
+_topbar_html = _topbar_html.replace('CAT_SEC',  'active' if cat_now == 'sectors' else '')
+
+_components.html(_topbar_html, height=56, scrolling=False)
+
+# Read nav params set by the drawer JS
+params = st.query_params
+if '_tab' in params:
+    new_tab = params['_tab']
+    new_cat = params.get('_cat', st.session_state.category)
+    changed = (new_tab != st.session_state.tab or new_cat != st.session_state.category)
+    st.session_state.tab = new_tab
+    if new_cat: st.session_state.category = new_cat
+    if changed:
+        st.query_params.clear()
+        st.rerun()
 
 # ─────────────────────────────────────────────
 # STREAMLIT NAV — real buttons, always visible below topbar
