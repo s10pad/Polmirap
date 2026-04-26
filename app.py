@@ -11,7 +11,15 @@ from knowledge import TICKER_PROFILES, TICKER_DOMAIN, TRADER_BIOS, SCORING_EXPLA
 
 HERE = Path(__file__).parent
 
-st.set_page_config(page_title="MIRROR AI", layout="wide", initial_sidebar_state="expanded")
+# Sidebar state must be initialised before set_page_config
+if 'sidebar_state' not in st.session_state:
+    st.session_state.sidebar_state = 'expanded'
+
+st.set_page_config(
+    page_title="MIRROR AI",
+    layout="wide",
+    initial_sidebar_state=st.session_state.sidebar_state,
+)
 
 # ── CSS ──────────────────────────────────────────────────────────────────────
 # IMPORTANT: No curly-brace CSS values inside Python f-strings in st.markdown.
@@ -530,43 +538,44 @@ with st.sidebar:
 
 
 # ─────────────────────────────────────────────
-# SIDEBAR TOGGLE BUTTON (top-left of main area)
-# Injects JS that clicks Streamlit's native sidebar collapse control.
+# SIDEBAR TOGGLE BUTTON
+# Uses session_state + rerun — the only reliable approach in Streamlit.
+# Styled to look like a fixed floating button via CSS.
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-#sidebar-toggle-btn {
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 99999;
-  background: rgba(8,14,28,0.92);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: border-color 0.18s, background 0.18s;
-  font-size: 16px;
-  color: #7c8fad;
+/* Style the toggle button as a small fixed pill in the top-left */
+div[data-testid="stMainBlockContainer"] > div:first-child div[data-testid="stHorizontalBlock"]:first-child div.stButton > button {
+  position: fixed !important;
+  top: 14px !important;
+  left: 14px !important;
+  z-index: 99999 !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  background: rgba(8,14,28,0.92) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #7c8fad !important;
+  letter-spacing: 0 !important;
 }
-#sidebar-toggle-btn:hover {
-  border-color: #00d4aa;
-  color: #00d4aa;
-  background: rgba(0,212,170,0.07);
+div[data-testid="stMainBlockContainer"] > div:first-child div[data-testid="stHorizontalBlock"]:first-child div.stButton > button:hover {
+  border-color: #00d4aa !important;
+  color: #00d4aa !important;
+  background: rgba(0,212,170,0.08) !important;
 }
 </style>
-<div id="sidebar-toggle-btn" onclick="
-  var btn = parent.document.querySelector('[data-testid=stSidebarCollapseButton] button') ||
-            parent.document.querySelector('[data-testid=collapsedControl] button') ||
-            parent.document.querySelector('button[title=\\'Collapse sidebar\\']') ||
-            parent.document.querySelector('button[title=\\'Expand sidebar\\']') ||
-            parent.document.querySelector('button[aria-label=\\'Collapse sidebar\\']') ||
-            parent.document.querySelector('button[aria-label=\\'Expand sidebar\\']');
-  if (btn) btn.click();
-" title="Toggle sidebar">&#9776;</div>
 """, unsafe_allow_html=True)
+
+_toggle_col, _ = st.columns([1, 20])
+with _toggle_col:
+    if st.button('\u2630', key='sidebar_toggle'):
+        st.session_state.sidebar_state = (
+            'collapsed' if st.session_state.sidebar_state == 'expanded' else 'expanded'
+        )
+        st.rerun()
 
 # ─────────────────────────────────────────────
 # TOASTS
