@@ -359,8 +359,12 @@ def fetch_price_history(symbol):
         return []
 
 def logo_url(ticker):
+    # Google's favicon service — browsers follow the 301 redirect automatically.
+    # Much more reliable than Clearbit from EC2 and no API key needed.
     domain = TICKER_DOMAIN.get(ticker, '')
-    return ('https://logo.clearbit.com/' + domain) if domain else ''
+    if domain:
+        return 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=64'
+    return ''
 
 
 # ─────────────────────────────────────────────
@@ -524,6 +528,45 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
+
+# ─────────────────────────────────────────────
+# SIDEBAR TOGGLE BUTTON (top-left of main area)
+# Injects JS that clicks Streamlit's native sidebar collapse control.
+# ─────────────────────────────────────────────
+st.markdown("""
+<style>
+#sidebar-toggle-btn {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 99999;
+  background: rgba(8,14,28,0.92);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.18s, background 0.18s;
+  font-size: 16px;
+  color: #7c8fad;
+}
+#sidebar-toggle-btn:hover {
+  border-color: #00d4aa;
+  color: #00d4aa;
+  background: rgba(0,212,170,0.07);
+}
+</style>
+<div id="sidebar-toggle-btn" onclick="
+  var btn = parent.document.querySelector('[data-testid=stSidebarCollapseButton] button') ||
+            parent.document.querySelector('[data-testid=collapsedControl] button') ||
+            parent.document.querySelector('button[title=\\'Collapse sidebar\\']') ||
+            parent.document.querySelector('button[title=\\'Expand sidebar\\']') ||
+            parent.document.querySelector('button[aria-label=\\'Collapse sidebar\\']') ||
+            parent.document.querySelector('button[aria-label=\\'Expand sidebar\\']');
+  if (btn) btn.click();
+" title="Toggle sidebar">&#9776;</div>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # TOASTS
