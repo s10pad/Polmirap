@@ -439,29 +439,32 @@ def holdings_to_trades(holdings, holder_name, weight, category):
 # ─────────────────────────────────────────────
 
 def score_politician_trades(politician_trades):
-    scores = defaultdict(lambda: {'ticker': '', 'score': 0.0, 'buy_count': 0, 'holders': []})
+    buys  = defaultdict(lambda: {'ticker': '', 'score': 0.0, 'buy_count': 0, 'holders': []})
+    sells = defaultdict(lambda: {'ticker': '', 'score': 0.0, 'sell_count': 0, 'holders': []})
     for key, trades in politician_trades.items():
         weight = POLITICIANS[key]['weight']
         for t in trades:
             ticker = t['ticker']
-            entry  = scores[ticker]
-            entry['ticker'] = ticker
             if t['side'] == 'buy':
-                entry['score']     += weight
-                entry['buy_count'] += 1
-                if key not in entry['holders']:
-                    entry['holders'].append(key)
+                e = buys[ticker]
+                e['ticker'] = ticker; e['score'] += weight; e['buy_count'] += 1
+                if key not in e['holders']: e['holders'].append(key)
             else:
-                entry['score'] -= weight * 0.5
+                e = sells[ticker]
+                e['ticker'] = ticker; e['score'] += weight; e['sell_count'] += 1
+                if key not in e['holders']: e['holders'].append(key)
 
-    for entry in scores.values():
-        n = len(entry['holders'])
-        if n >= 3:   entry['score'] *= 1.5
-        elif n >= 2: entry['score'] *= 1.2
+    for store in (buys, sells):
+        for entry in store.values():
+            n = len(entry['holders'])
+            if n >= 3:   entry['score'] *= 1.5
+            elif n >= 2: entry['score'] *= 1.2
 
-    ranked = [(t, e) for t, e in scores.items() if e['score'] > 0 and e['buy_count'] > 0]
-    ranked.sort(key=lambda x: x[1]['score'], reverse=True)
-    return ranked
+    buy_ranked  = [(t, e) for t, e in buys.items()  if e['score'] > 0 and e['buy_count']  > 0]
+    sell_ranked = [(t, e) for t, e in sells.items() if e['score'] > 0 and e['sell_count'] > 0]
+    buy_ranked.sort(key=lambda x: x[1]['score'],  reverse=True)
+    sell_ranked.sort(key=lambda x: x[1]['score'], reverse=True)
+    return buy_ranked, sell_ranked
 
 
 def score_weighted_trades(trades_by_holder, holder_meta):
@@ -518,14 +521,14 @@ def score_athlete_trades(athlete_portfolios):
 # BUILD SUGGESTIONS
 # ─────────────────────────────────────────────
 
-def build_suggestions(ranked, holder_meta, category, top_n=10, trades_by_holder=None):
+def build_suggestions(ranked, holder_meta, category, top_n=10, trades_by_holder=None, action='BUY'):
     suggestions = []
     today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    count_key = 'sell_count' if action == 'SELL' else 'buy_count'
     for ticker, entry in ranked[:top_n]:
         holders = entry['holders']
         names   = [holder_meta[k]['name'] for k in holders if k in holder_meta]
 
-        # For CEO/sector categories, surface the filing date of the most recent 13F
         data_as_of = ''
         if trades_by_holder and category in ('ceos', 'sectors'):
             dates = []
@@ -537,17 +540,17 @@ def build_suggestions(ranked, holder_meta, category, top_n=10, trades_by_holder=
                 data_as_of = max(dates)
 
         suggestions.append({
-            'pk':         f'suggestion#{category}#{ticker}',
+            'pk':         f'suggestion#{category}#{ticker}#{action}',
             'sk':         today,
             'ticker':     ticker,
             'name':       entry.get('name', ticker),
             'score':      round(entry['score'], 4),
             'conviction': len(holders),
-            'buy_count':  entry['buy_count'],
+            'buy_count':  entry.get(count_key, 0),
             'investors':  ', '.join(names),
             'category':   category,
             'data_as_of': data_as_of,
-            'action':     'BUY',
+            'action':     action,
             'status':     'pending',
             'created':    datetime.now(timezone.utc).isoformat(),
         })
@@ -567,8 +570,10 @@ if __name__ == '__main__':
     for key, info in POLITICIANS.items():
         print(f"Fetching {info['name']}...")
         pol_trades[key] = fetch_politician_trades(key, info, pages=3)
-    ranked_pol = score_politician_trades(pol_trades)
-    all_suggestions['politicians'] = build_suggestions(ranked_pol, POLITICIANS, 'politicians')
+    buy_ranked_pol, sell_ranked_pol = score_politician_trades(pol_trades)
+    pol_buys  = build_suggestions(buy_ranked_pol,  POLITICIANS, 'politicians', action='BUY')
+    pol_sells = build_suggestions(sell_ranked_pol, POLITICIANS, 'politicians', action='SELL', top_n=5)
+    all_suggestions['politicians'] = pol_buys + pol_sells
 
     # Health check — warn if any politician returned 0 signals
     warnings = [info['name'] for key, info in POLITICIANS.items() if len(pol_trades.get(key, [])) == 0]

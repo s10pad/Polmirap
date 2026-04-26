@@ -55,16 +55,28 @@ html, body,
 [data-testid="stSidebarCollapseButton"],[data-testid="collapsedControl"],
 [data-testid="stSidebar"],#MainMenu,footer { display:none !important; }
 
-/* The component iframe for topbar is 56px tall; main content follows naturally */
+/* Main content — leave room for 56px topbar only */
 [data-testid="stMainBlockContainer"] {
-  padding: 8px 28px 80px !important;
+  padding: 68px 28px 80px !important;
   max-width: 900px !important;
 }
-/* Remove the component iframe border/margin */
-iframe[title="streamlit_components_v1_html"] {
-  display: block !important;
+/* The component iframe sits fixed at top; collapse its layout height to 0
+   so it doesn't push content down. The topbar/drawer use position:fixed
+   inside the iframe and escape the iframe stacking context via z-index. */
+[data-testid="stCustomComponentV1"] {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  height: 100vh !important;
+  z-index: 9000 !important;
+  pointer-events: none !important;
   border: none !important;
-  margin: 0 !important;
+}
+[data-testid="stCustomComponentV1"] iframe {
+  width: 100% !important;
+  height: 100vh !important;
+  border: none !important;
+  pointer-events: auto !important;
+  background: transparent !important;
 }
 
 /* ── TOPBAR ── */
@@ -549,7 +561,24 @@ _topbar_html = _topbar_html.replace('CAT_CEO',  'active' if cat_now == 'ceos' el
 _topbar_html = _topbar_html.replace('CAT_ATH',  'active' if cat_now == 'athletes' else '')
 _topbar_html = _topbar_html.replace('CAT_SEC',  'active' if cat_now == 'sectors' else '')
 
-_components.html(_topbar_html, height=56, scrolling=False)
+# height=1 — the iframe self-expands to full viewport via JS below.
+# The topbar and drawer are position:fixed so they escape normal flow.
+# We inject a script that sets the parent iframe height to window.innerHeight.
+_topbar_html_final = _topbar_html + """
+<script>
+// Expand the Streamlit component iframe to cover full viewport
+// so position:fixed children (topbar, drawer, overlay) render correctly.
+(function() {
+  function resize() {
+    var h = window.innerHeight || document.documentElement.clientHeight || 800;
+    // Tell the parent Streamlit frame to resize this component
+    window.parent.postMessage({type:'streamlit:setFrameHeight', height: h}, '*');
+  }
+  resize();
+  window.addEventListener('resize', resize);
+})();
+</script>"""
+_components.html(_topbar_html_final, height=800, scrolling=False)
 
 # Read nav params set by the drawer JS
 params = st.query_params
