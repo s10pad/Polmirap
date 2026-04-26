@@ -198,3 +198,11 @@ Each item has an estimated fix time for context.
 ---
 
 *Add notes below any item as we discuss. Date your additions.*
+
+Sunday April 4th 2026
+
+1. add them both.
+2. news scraper will meet my needs.
+3. Cloudflare is fine with me.
+4. Whenever I want. Should be able to switch between manual and automated trading.
+5. Please scale with account size. No harcoded amount.

@@ -280,6 +280,18 @@ div.stButton > button[kind="primary"] {
 # ALPACA
 # ─────────────────────────────────────────────
 
+DECISIONS_FILE = HERE / 'decisions.json'
+
+def load_decisions():
+    try:
+        return json.load(open(DECISIONS_FILE))
+    except Exception:
+        return {}
+
+def save_decisions(d):
+    with open(DECISIONS_FILE, 'w') as f:
+        json.dump(d, f)
+
 @st.cache_resource
 def get_client():
     k = os.getenv('ALPACA_KEY')
@@ -288,19 +300,35 @@ def get_client():
         return None
     return TradingClient(k, s, paper=True)
 
-def place_order(symbol, notional=500):
+def get_trade_notional():
+    """0.5% of current equity, minimum $10."""
+    acct = load_account()
+    if acct:
+        return max(10.0, round(float(acct.equity) * 0.005, 2))
+    return 500.0
+
+def place_order(symbol):
     client = get_client()
     if not client:
-        return False, "Alpaca credentials not configured"
+        return False, "Alpaca credentials not configured", None
+    notional = get_trade_notional()
     try:
         req = MarketOrderRequest(
             symbol=symbol, notional=notional,
             side=OrderSide.BUY, time_in_force=TimeInForce.DAY
         )
         order = client.submit_order(req)
-        return True, str(order.id)
+        # Poll once for fill status (max 2s)
+        import time as _t
+        _t.sleep(1.5)
+        try:
+            o = client.get_order_by_id(order.id)
+            status = str(o.status).split('.')[-1].lower()
+        except Exception:
+            status = 'submitted'
+        return True, f"id {str(order.id)[:8]}  ·  {status}", notional
     except Exception as e:
-        return False, str(e)
+        return False, str(e), None
 
 @st.cache_data(ttl=60)
 def load_account():
@@ -327,12 +355,11 @@ def load_suggestions():
     try:
         with open(HERE / 'suggestions.json') as f:
             data = json.load(f)
-        # Support both old flat list and new dict-of-categories format
         if isinstance(data, list):
-            return {'politicians': data, 'ceos': [], 'athletes': [], 'sectors': []}
+            return {'politicians': data, 'ceos': [], 'athletes': [], 'sectors': [], 'last_updated': None}
         return data
     except Exception:
-        return {'politicians': [], 'ceos': [], 'athletes': [], 'sectors': []}
+        return {'politicians': [], 'ceos': [], 'athletes': [], 'sectors': [], 'last_updated': None}
 
 
 # ─────────────────────────────────────────────
@@ -342,11 +369,13 @@ def load_suggestions():
 for key, default in [
     ('tab', 'feed'),
     ('category', 'politicians'),
-    ('decisions', {}),
     ('toasts', []),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
+
+if 'decisions' not in st.session_state:
+    st.session_state.decisions = load_decisions()
 
 
 # ─────────────────────────────────────────────
@@ -354,7 +383,18 @@ for key, default in [
 # ─────────────────────────────────────────────
 
 st.markdown('<div class="wordmark">MIRROR AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub">Paper trading &nbsp;·&nbsp; Signal intelligence</div>', unsafe_allow_html=True)
+
+# Freshness indicator
+_sug = load_suggestions()
+_lu  = _sug.get('last_updated')
+if _lu:
+    from datetime import datetime as _dt, timezone as _tz
+    _age = _dt.now(_tz.utc) - _dt.fromisoformat(_lu)
+    _h = int(_age.total_seconds() // 3600)
+    _fresh = f"Updated {_h}h ago" if _h < 24 else f"Updated {_age.days}d ago"
+else:
+    _fresh = "No data yet — run fetcher.py"
+st.markdown(f'<div class="sub">Paper trading &nbsp;·&nbsp; {_fresh}</div>', unsafe_allow_html=True)
 
 account = load_account()
 if account:
@@ -480,17 +520,20 @@ if st.session_state.tab == 'feed':
 
         btn_a, btn_r = st.columns([3, 2])
         with btn_a:
-            if st.button(f"APPROVE  $500", key=f"approve_{cat}_{ticker}", use_container_width=True):
-                ok, result = place_order(ticker, 500)
+            notional_preview = get_trade_notional()
+            if st.button(f"APPROVE  ${notional_preview:,.0f}", key=f"approve_{cat}_{ticker}", use_container_width=True):
+                ok, result, notional = place_order(ticker)
                 st.session_state.decisions[f"{cat}_{ticker}"] = 'approved'
+                save_decisions(st.session_state.decisions)
                 if ok:
-                    st.session_state.toasts.append((True, f"Order placed: {ticker}  ·  ${500}  ·  id {result[:8]}"))
+                    st.session_state.toasts.append((True, f"Order placed: {ticker}  ·  ${notional:,.2f}  ·  {result}"))
                 else:
-                    st.session_state.toasts.append((False, f"Order failed: {result}"))
+                    st.session_state.toasts.append((False, f"Order failed for {ticker}: {result}"))
                 st.rerun()
         with btn_r:
             if st.button("REJECT", key=f"reject_{cat}_{ticker}", use_container_width=True):
                 st.session_state.decisions[f"{cat}_{ticker}"] = 'rejected'
+                save_decisions(st.session_state.decisions)
                 st.rerun()
 
     if decided:

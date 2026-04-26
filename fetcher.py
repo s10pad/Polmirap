@@ -28,7 +28,8 @@ HERE = Path(__file__).parent
 # ─────────────────────────────────────────────
 POLITICIANS = {
     'pelosi':     {'name': 'Nancy Pelosi',          'ct_id': 'P000197', 'weight': 1.6},
-    'rouzer':     {'name': 'David Rouzer',           'ct_id': 'R000603', 'weight': 1.4},
+    'schultz':    {'name': 'Debbie Schultz',        'ct_id': 'S001565', 'weight': 1.5},  # +142.3% 2024
+    'williams':   {'name': 'Roger Williams',        'ct_id': 'W000816', 'weight': 1.4},  # +111.2% 2024
     'wyden':      {'name': 'Ron Wyden',              'ct_id': 'W000779', 'weight': 1.3},
     'sessions':   {'name': 'Pete Sessions',          'ct_id': 'S000250', 'weight': 1.2},
     'collins':    {'name': 'Susan Collins',          'ct_id': 'C001035', 'weight': 1.3},
@@ -288,17 +289,36 @@ def fetch_13f_holdings(key, info, top_n=25):
         return []
 
 
+# Known CUSIP -> ticker map for the most common superinvestor holdings.
+# Avoids OpenFIGI failures for ETFs, foreign listings, and common large-caps.
+CUSIP_MAP = {
+    '025816109': 'AXP',   '037833100': 'AAPL',  '191216100': 'KO',
+    '060505104': 'BAC',   '345370860': 'FOX',   '38141G104': 'GS',
+    '808513105': 'SCE',   '172967424': 'C',      '46625H100': 'JPM',
+    '857477103': 'STZ',   '718172109': 'PM',     '26441C204': 'DVA',
+    '084670702': 'BRK-B', '92826C839': 'V',      '459200101': 'IBM',
+    '40434L105': 'HCA',   '00206R102': 'T',      '670346105': 'OXY',
+    '20030N101': 'CHTR',  '69351T106': 'PANW',   '67066G104': 'NVDA',
+    '594918104': 'MSFT',  '023135106': 'AMZN',   '30303M102': 'META',
+    '88160R101': 'TSLA',  '02079K305': 'GOOGL',  '72346Q104': 'PINS',
+    '931142103': 'WMT',   '78462F103': 'SPY',    '464287655': 'IVV',
+    '46090E103': 'IAU',   '78468R663': 'QQQ',    '921937835': 'VTI',
+    '097023105': 'BKNG',  '44919P508': 'UBER',   '03783310': 'AAPL',
+    '594918100': 'MSFT',  '345370860': 'FOXA',   '167250109': 'CHWY',
+    '88162G103': 'TTWO',  '90184L102': 'TWLO',   '09075V102': 'BIRD',
+}
+
+
 def resolve_cusip_to_ticker(cusip):
-    """
-    Best-effort CUSIP -> ticker via OpenFIGI (free, no auth required for basic lookups).
-    Returns ticker string or None.
-    """
+    """CUSIP -> ticker. Checks local map first, then OpenFIGI."""
+    if cusip in CUSIP_MAP:
+        return CUSIP_MAP[cusip]
     try:
         r = requests.post(
             'https://api.openfigi.com/v3/mapping',
             json=[{'idType': 'ID_CUSIP', 'idValue': cusip}],
             headers={'Content-Type': 'application/json'},
-            timeout=10
+            timeout=8
         )
         if r.status_code == 200:
             data = r.json()
@@ -309,6 +329,65 @@ def resolve_cusip_to_ticker(cusip):
     except Exception:
         pass
     return None
+
+
+def fetch_athlete_news():
+    """
+    Scrape Sportico, Boardroom, and Front Office Sports for athlete investment mentions.
+    Returns a dict of {athlete_key: [ticker, ...]} discovered from recent headlines.
+    """
+    ATHLETE_NAMES = {
+        'LeBron': 'lebron', 'James': 'lebron',
+        'Jordan': 'jordan',
+        'Serena': 'serena', 'Williams': 'serena',
+        'Curry': 'curry', 'Stephen': 'curry',
+        'Durant': 'durant', 'Kevin': 'durant',
+        'Ronaldo': 'ronaldo', 'Cristiano': 'ronaldo',
+        'Brady': 'brady', 'Tom Brady': 'brady',
+    }
+    # Ticker patterns found near athlete names in financial news
+    TICKER_PATTERN = re.compile(r'\b([A-Z]{2,5})\b')
+    NOISE = {'A','AN','AS','AT','BE','BY','FOR','IN','IS','IT','NO','OF','ON','OR',
+             'THE','TO','UP','US','WE','IF','HE','MY','SO','DO','GO','AM','I'}
+
+    sources = [
+        'https://sportico.com/business/finance/',
+        'https://boardroom.tv/category/investing/',
+    ]
+    discovered = defaultdict(set)
+
+    for url in sources:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=12)
+            if r.status_code != 200:
+                continue
+            text = r.text
+            # Find paragraphs containing athlete names
+            for name, key in ATHLETE_NAMES.items():
+                # Find up to 300 chars around each mention
+                for m in re.finditer(re.escape(name), text, re.IGNORECASE):
+                    snippet = text[max(0, m.start()-100): m.end()+200]
+                    tickers = [t for t in TICKER_PATTERN.findall(snippet)
+                               if t not in NOISE and len(t) >= 2]
+                    for t in tickers:
+                        discovered[key].add(t)
+        except Exception:
+            continue
+
+    # Filter: keep only tickers that also appear in curated lists (sanity check)
+    known = set()
+    for info in ATHLETE_PORTFOLIOS.values():
+        for t in info['tickers']:
+            known.add(t['ticker'])
+
+    result = {}
+    for key, tickers in discovered.items():
+        valid = [t for t in tickers if t in known]
+        if valid:
+            result[key] = valid
+            print(f"  News: {key} -> {valid}")
+
+    return result
 
 
 def holdings_to_trades(holdings, holder_name, weight, category):
@@ -484,6 +563,15 @@ if __name__ == '__main__':
 
     # ── 3. ATHLETES ──
     print("\n== ATHLETES ==")
+    # Scrape news for fresh signals, merge into curated portfolios
+    news_hits = fetch_athlete_news()
+    for key, tickers in news_hits.items():
+        if key in ATHLETE_PORTFOLIOS:
+            existing = {t['ticker'] for t in ATHLETE_PORTFOLIOS[key]['tickers']}
+            for t in tickers:
+                if t not in existing:
+                    ATHLETE_PORTFOLIOS[key]['tickers'].append({'ticker': t, 'side': 'buy'})
+                    print(f"  Added from news: {key} -> {t}")
     ranked_ath = score_athlete_trades(ATHLETE_PORTFOLIOS)
     all_suggestions['athletes'] = build_suggestions(
         ranked_ath,
@@ -493,26 +581,48 @@ if __name__ == '__main__':
 
     # ── 4. SECTORS ──
     print("\n== SECTORS ==")
-    # Sectors use curated ETF top-holdings lists — no live API needed
-    sector_trades = {}
+    # Build per-ticker scores aggregated across all 7 sectors (enables cross-sector conviction)
+    sector_ticker_scores: dict = defaultdict(lambda: {
+        'ticker': '', 'score': 0.0, 'buy_count': 0, 'holders': [], 'name': ''
+    })
     for key, info in SECTORS.items():
-        trades = []
         for rank, ticker in enumerate(info['tickers']):
             rank_bonus = 1.0 + max(0, (10 - rank) / 10)
-            trades.append({
-                'ticker':   ticker,
-                'name':     ticker,
-                'holder':   info['name'],
-                'side':     'buy',
-                'score':    round(info['weight'] * rank_bonus, 4),
-                'category': 'sectors',
-            })
-        sector_trades[key] = trades
-        print(f"  {info['name']}: {len(trades)} holdings")
-    ranked_sec = score_weighted_trades(sector_trades, SECTORS)
-    all_suggestions['sectors'] = build_suggestions(ranked_sec, SECTORS, 'sectors')
+            e = sector_ticker_scores[ticker]
+            e['ticker'] = ticker
+            e['name']   = ticker
+            e['score']  += round(info['weight'] * rank_bonus, 4)
+            e['buy_count'] += 1
+            if key not in e['holders']:
+                e['holders'].append(key)
+        print(f"  {info['name']}: {len(info['tickers'])} holdings")
+
+    # Apply cross-sector conviction multiplier
+    for e in sector_ticker_scores.values():
+        n = len(e['holders'])
+        if n >= 3:   e['score'] *= 1.5
+        elif n >= 2: e['score'] *= 1.2
+
+    ranked_sec = sorted(sector_ticker_scores.items(), key=lambda x: x[1]['score'], reverse=True)
+    # Build suggestions with sector names as investors
+    sec_suggestions = []
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    for ticker, e in ranked_sec[:10]:
+        sector_names = [SECTORS[k]['name'] for k in e['holders'] if k in SECTORS]
+        sec_suggestions.append({
+            'pk': f'suggestion#sectors#{ticker}', 'sk': today,
+            'ticker': ticker, 'name': ticker,
+            'score': round(e['score'], 4),
+            'conviction': len(e['holders']),
+            'buy_count': e['buy_count'],
+            'investors': ', '.join(sector_names),
+            'category': 'sectors', 'action': 'BUY', 'status': 'pending',
+            'created': datetime.now(timezone.utc).isoformat(),
+        })
+    all_suggestions['sectors'] = sec_suggestions
 
     # ── SAVE ──
+    all_suggestions['last_updated'] = datetime.now(timezone.utc).isoformat()
     out_path = HERE / 'suggestions.json'
     with open(out_path, 'w') as f:
         json.dump(all_suggestions, f, indent=2)
