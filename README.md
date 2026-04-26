@@ -6,15 +6,24 @@ A Streamlit-based paper trading dashboard that tracks the portfolios of elite in
 
 ## What it does
 
-1. **Fetches** holdings data from public sources:
-   - SEC EDGAR 13F filings for Warren Buffett, Bill Ackman, Michael Burry, Ray Dalio
-   - ARK Invest ARKK ETF holdings for Cathie Wood
-   - Capitol Trades / EDGAR for Nancy Pelosi congressional disclosures
-   - SEC Form 4 filings for Elon Musk
-2. **Scores** every stock across all investors using a weighted formula that rewards portfolio concentration, investor conviction weight, and cross-investor agreement
-3. **Surfaces** the top 10 trade signals in a feed you can approve or reject
-4. **Executes** approved trades as fractional market orders on Alpaca (paper trading mode by default)
-5. **Tracks** open positions and unrealized P&L, and shows a leaderboard of investor signal strength
+Tracks and mirrors the publicly disclosed stock trades of the **top 7 US politicians** ranked by portfolio returns (Unusual Whales 2024 data):
+
+| Rank | Politician | 2024 Return |
+|---|---|---|
+| 1 | Nancy Pelosi | +70.9% |
+| 2 | David Rouzer | +149.0% |
+| 3 | Ron Wyden | +123.8% |
+| 4 | Pete Sessions | +77.5% |
+| 5 | Susan Collins | +77.5% |
+| 6 | Tommy Tuberville | top active trader |
+| 7 | Marjorie Taylor Greene | +30.2% |
+
+1. **Fetches** all STOCK Act trade disclosures from the public House and Senate data feeds
+2. **Filters** for the top 7 target politicians only
+3. **Scores** each ticker: buy disclosures add weight, sell disclosures subtract; weighted by politician track record; cross-politician conviction multiplier
+4. **Surfaces** the top 10 buy signals in a feed you can approve or reject
+5. **Executes** approved trades as fractional market orders on Alpaca (paper mode by default)
+6. **Tracks** open positions, unrealized P&L, and a politician leaderboard
 
 ---
 
@@ -22,15 +31,15 @@ A Streamlit-based paper trading dashboard that tracks the portfolios of elite in
 
 ```
 Polmirap/
-├── app.py              # Streamlit UI — feed, positions, leaderboard
-├── fetcher.py          # SEC EDGAR + ARK + Capitol Trades scrapers
-├── scorer.py           # Scores & ranks stocks, writes suggestions.json
-├── strategy.py         # Position sizing (MirrorStrategy)
-├── lambda_function.py  # AWS Lambda handler for automated congressional trade mirroring
-├── database.py         # DynamoDB deduplication helper (DuplicateHandler)
-├── holdings.json       # Cached investor holdings (output of fetcher.py)
-├── suggestions.json    # Scored trade signals (output of scorer.py)
-└── manifest.json       # PWA manifest
+├── app.py                  # Streamlit UI — feed, positions, leaderboard
+├── fetcher.py              # Fetches + scores congressional STOCK Act disclosures
+├── scorer.py               # Re-scores from cached data without re-fetching
+├── strategy.py             # Position sizing (MirrorStrategy)
+├── lambda_function.py      # AWS Lambda for automated trade mirroring
+├── database.py             # DynamoDB deduplication helper
+├── politician_trades.json  # Cached raw trades (output of fetcher.py)
+├── suggestions.json        # Scored top-10 signals (output of fetcher.py / scorer.py)
+└── manifest.json           # PWA manifest
 ```
 
 ---
@@ -108,15 +117,15 @@ Open `http://localhost:8501` in your browser.
 
 ## Scoring logic
 
-Each stock receives a score contribution from each investor who holds it:
+Each ticker is scored from STOCK Act buy/sell disclosures:
 
 ```
-contribution = (position_size / total_portfolio) × investor_weight × rank_bonus × 100
+score += (buy_count - sell_count) × politician_weight
 ```
 
-- **Investor weights:** Buffett 1.5 › Burry 1.4 › Ackman 1.3 › Dalio 1.2 › Wood 1.1 › Pelosi/Musk 1.0
-- **Rank bonus:** top-10 holdings get up to 2× amplification
-- **Conviction multiplier:** ×1.5 if held by 3+ investors, ×1.2 if held by 2+
+- **Politician weights:** Pelosi 1.6 › Rouzer 1.4 › Tuberville/Collins/Wyden 1.3 › Sessions 1.2 › Greene 1.1
+- **Conviction multiplier:** ×1.5 if bought by 3+ politicians, ×1.2 if bought by 2+
+- Only net-buy positions (more buys than sells) surface as signals
 
 ---
 
@@ -132,9 +141,8 @@ Set `DRY_RUN=True` to simulate without placing orders.
 
 ---
 
-## Known issues
+## Notes
 
-- `app.py` loads `suggestions.json` from `/home/ubuntu/suggestions.json` (hardcoded Linux path) — update to a relative path for local Windows use
-- `holdings.json` is cached; run `fetcher.py` manually or on a cron schedule to keep it fresh
-- Pelosi / Musk data scrapers are best-effort; JavaScript-rendered pages may return partial data
-- `lambda_function.py` has an incomplete `targets` list (left blank in source)
+- Run `fetcher.py` daily (before market open) to keep signals fresh — STOCK Act requires disclosure within 45 days so data is not real-time
+- `politician_trades.json` is the raw cache; delete it and re-run `fetcher.py` to get the latest
+- Paper trading is always on by default; set `DRY_RUN=False` in Lambda env only when ready for live execution

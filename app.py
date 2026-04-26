@@ -1,9 +1,12 @@
 import streamlit as st
 import json
 import os
+from pathlib import Path
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+
+HERE = Path(__file__).parent
 
 st.set_page_config(page_title="MIRROR AI", page_icon="M", layout="centered", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -52,7 +55,7 @@ def place_order(symbol, notional=500):
 @st.cache_data(ttl=300)
 def load_suggestions():
     try:
-        with open('/home/ubuntu/suggestions.json') as f:
+        with open(HERE / 'suggestions.json') as f:
             return json.load(f)
     except:
         return []
@@ -77,7 +80,7 @@ if 'tab' not in st.session_state:
     st.session_state.tab = 'feed'
 
 st.markdown('<div class="header-logo">MIRROR AI</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-sub">Paper trading · 7 investors</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-sub">Paper trading · Top 7 politicians</div>', unsafe_allow_html=True)
 
 account = load_account()
 if account:
@@ -100,37 +103,41 @@ with t3:
 suggestions = load_suggestions()
 
 if st.session_state.tab == 'feed':
-    pending = [s for s in suggestions if st.session_state.decisions.get(s['name'],'pending')=='pending']
-    decided = [s for s in suggestions if st.session_state.decisions.get(s['name'],'pending')!='pending']
+    pending = [s for s in suggestions if st.session_state.decisions.get(s.get('ticker', s.get('name','')),'pending')=='pending']
+    decided = [s for s in suggestions if st.session_state.decisions.get(s.get('ticker', s.get('name','')),'pending')!='pending']
     if not pending:
         st.markdown('<div class="empty-state">NO PENDING SUGGESTIONS<br>Run scorer.py to refresh signals</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="section-title">{len(pending)} pending signals</div>', unsafe_allow_html=True)
     for s in pending:
-        name=s.get('name',''); score=float(s.get('score',0)); conviction=int(s.get('conviction',1))
-        investors=s.get('investors',''); val_k=int(s.get('total_value_k',0))
+        ticker=s.get('ticker', s.get('name',''))
+        name=s.get('name', ticker)
+        score=float(s.get('score',0)); conviction=int(s.get('conviction',1))
+        investors=s.get('investors','')
         bar_pct=min(100,int((conviction/7)*100))
         pills=''.join([f'<span class="pill">{i.strip().title()}</span>' for i in investors.split(',')])
         st.markdown(f"""<div class="card">
-            <div class="card-header"><div><div class="ticker">BUY</div><div class="company-name">{name}</div></div><div class="score-badge">{score:.1f}</div></div>
+            <div class="card-header"><div><div class="ticker">{ticker}</div><div class="company-name">BUY · {investors}</div></div><div class="score-badge">{score:.1f}</div></div>
             <div class="investor-pills">{pills}</div>
             <div class="conviction-bar-bg"><div class="conviction-bar" style="width:{bar_pct}%"></div></div>
-            <div class="stat-row"><span>Conviction</span><span class="stat-val">{conviction}/7 investors</span></div>
-            <div class="stat-row"><span>Combined value</span><span class="stat-val">${val_k:,}k</span></div>
+            <div class="stat-row"><span>Conviction</span><span class="stat-val">{conviction}/7 politicians</span></div>
+            <div class="stat-row"><span>Buy count</span><span class="stat-val">{s.get('buy_count', conviction)} disclosures</span></div>
         </div>""", unsafe_allow_html=True)
         ca,cr=st.columns(2)
         with ca:
-            if st.button(f"APPROVE $500", key=f"a_{name}", use_container_width=True):
-                st.session_state.decisions[name]='approved'; st.rerun()
+            if st.button(f"APPROVE $500", key=f"a_{ticker}", use_container_width=True):
+                ok, result = place_order(ticker, 500)
+                st.session_state.decisions[ticker]='approved'; st.rerun()
         with cr:
-            if st.button("REJECT", key=f"r_{name}", use_container_width=True):
-                st.session_state.decisions[name]='rejected'; st.rerun()
+            if st.button("REJECT", key=f"r_{ticker}", use_container_width=True):
+                st.session_state.decisions[ticker]='rejected'; st.rerun()
     if decided:
         st.markdown(f'<div class="section-title">{len(decided)} reviewed</div>', unsafe_allow_html=True)
         for s in decided:
-            name=s.get('name',''); decision=st.session_state.decisions.get(name,'')
+            ticker=s.get('ticker', s.get('name',''))
+            decision=st.session_state.decisions.get(ticker,'')
             badge='<span class="approved-badge">APPROVED</span>' if decision=='approved' else '<span class="rejected-badge">REJECTED</span>'
-            st.markdown(f'<div class="card" style="opacity:0.5"><div class="card-header"><span style="font-size:0.85rem;color:var(--text)">{name}</span>{badge}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card" style="opacity:0.5"><div class="card-header"><span style="font-family:Space Mono,monospace;font-size:0.9rem;color:var(--green)">{ticker}</span>{badge}</div></div>', unsafe_allow_html=True)
 
 elif st.session_state.tab == 'positions':
     positions=load_positions()

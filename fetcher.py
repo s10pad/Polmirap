@@ -2,200 +2,195 @@ import requests
 import json
 import re
 import time
+from pathlib import Path
 from datetime import datetime, timezone
+from collections import Counter
 
-HEADERS = {'User-Agent': 'MirrorAI arnaudpkengni@2gmail.com'}
+HEADERS = {'User-Agent': 'MirrorAI arnaudpkengni@gmail.com'}
 
-INVESTORS_13F = {
-    'buffett': {'cik': '0001067983', 'cik_int': 1067983,  'name': 'Warren Buffett'},
-    'ackman':  {'cik': '0001336528', 'cik_int': 1336528,  'name': 'Bill Ackman'},
-    'burry':   {'cik': '0001649339', 'cik_int': 1649339,  'name': 'Michael Burry'},
-    'dalio':   {'cik': '0001350694', 'cik_int': 1350694,  'name': 'Ray Dalio'},
+HERE = Path(__file__).parent
+
+# Top 7 US politicians ranked by portfolio returns and trading volume (Unusual Whales 2024 report)
+# Capitol Trades IDs match the standard bioguide format
+POLITICIANS = {
+    'pelosi':   {'name': 'Nancy Pelosi',         'ct_id': 'P000197'},
+    'tuberville':{'name': 'Tommy Tuberville',     'ct_id': 'T000278'},
+    'collins':  {'name': 'Susan Collins',         'ct_id': 'C001035'},
+    'rouzer':   {'name': 'David Rouzer',          'ct_id': 'R000603'},
+    'wyden':    {'name': 'Ron Wyden',             'ct_id': 'W000779'},
+    'sessions': {'name': 'Pete Sessions',         'ct_id': 'S000250'},
+    'greene':   {'name': 'Marjorie Taylor Greene', 'ct_id': 'G000596'},
 }
 
-def parse_xml_holdings(xml_content):
-    # handle both plain tags and ns1: namespaced tags
-    def findall(tag):
-        results = re.findall(rf'<(?:ns1:)?{tag}>(.*?)</(?:ns1:)?{tag}>', xml_content, re.DOTALL)
-        return [r.strip() for r in results]
+# Weights based on track record — Pelosi is the standout, others are competitive
+POLITICIAN_WEIGHTS = {
+    'pelosi':    1.6,
+    'tuberville': 1.3,
+    'collins':   1.3,
+    'rouzer':    1.4,
+    'wyden':     1.3,
+    'sessions':  1.2,
+    'greene':    1.1,
+}
 
-    names  = findall('nameOfIssuer')
-    values = findall('value')
-    shares = findall('sshPrnamt')
-    cusips = findall('cusip')
-
-    holdings = []
-    for i in range(min(len(names), len(values))):
-        val = values[i].replace(',', '').strip()
-        shr = shares[i].replace(',', '').strip() if i < len(shares) else '0'
-        holdings.append({
-            'name':   names[i],
-            'cusip':  cusips[i] if i < len(cusips) else '',
-            'value':  int(val) if val.isdigit() else 0,
-            'shares': int(shr) if shr.isdigit() else 0,
-        })
-    holdings.sort(key=lambda x: x['value'], reverse=True)
-    return holdings
+# Public S3 datasets maintained by community watchers (STOCK Act disclosures)
+HOUSE_URL  = 'https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json'
+SENATE_URL = 'https://senate-stock-watcher-data.s3-us-west-2.amazonaws.com/aggregate/all_transactions.json'
 
 
-def fetch_13f(key, cik, cik_int, name):
-    print(f"Fetching 13F for {name}...")
-    subs = requests.get(f'https://data.sec.gov/submissions/CIK{cik}.json', headers=HEADERS).json()
-    recent = subs['filings']['recent']
+def fetch_all_congressional_trades():
+    """Pull the full House + Senate trade disclosure datasets."""
+    print("Fetching House disclosures...")
+    try:
+        house = requests.get(HOUSE_URL, headers=HEADERS, timeout=30).json()
+        print(f"  {len(house)} House records")
+    except Exception as e:
+        print(f"  House fetch failed: {e}")
+        house = []
 
-    accession = filing_date = None
-    for i, form in enumerate(recent['form']):
-        if form == '13F-HR':
-            accession   = recent['accessionNumber'][i].replace('-', '')
-            filing_date = recent['filingDate'][i]
-            break
+    print("Fetching Senate disclosures...")
+    try:
+        senate = requests.get(SENATE_URL, headers=HEADERS, timeout=30).json()
+        print(f"  {len(senate)} Senate records")
+    except Exception as e:
+        print(f"  Senate fetch failed: {e}")
+        senate = []
 
-    if not accession:
-        print(f"  No 13F found")
-        return []
-
-    print(f"  Filing date: {filing_date}")
-    idx = requests.get(f'https://www.sec.gov/Archives/edgar/data/{cik_int}/{accession}/', headers=HEADERS)
-    xml_files = re.findall(r'href="(/Archives/edgar/data/[^"]+\.xml)"', idx.text)
-
-    info_xml = None
-    for xf in xml_files:
-        if 'primary_doc' not in xf.lower():
-            info_xml = 'https://www.sec.gov' + xf
-            break
-
-    if not info_xml:
-        print(f"  No info table XML found")
-        return []
-
-    print(f"  Parsing: {info_xml.split('/')[-1]}")
-    xml = requests.get(info_xml, headers=HEADERS).text
-    holdings = parse_xml_holdings(xml)
-    print(f"  Parsed {len(holdings)} holdings")
-    time.sleep(0.6)
-    return holdings[:25]
+    return house + senate
 
 
-def fetch_ark_wood():
-    print("Fetching ARK holdings for Cathie Wood...")
-    r = requests.get('https://arkfunds.io/api/v2/etf/holdings?symbol=ARKK', headers=HEADERS)
-    if r.status_code != 200:
-        print(f"  arkfunds.io failed: {r.status_code}")
-        return []
-    data = r.json()
-    holdings = []
-    for h in data.get('holdings', [])[:25]:
-        holdings.append({
-            'name':   h.get('company', ''),
-            'ticker': h.get('ticker', ''),
-            'value':  int(float(h.get('market_value', 0))),
-            'shares': int(float(h.get('shares', 0))),
-            'weight': h.get('weight', 0),
-        })
-    print(f"  Parsed {len(holdings)} holdings")
-    return holdings
+def filter_by_politicians(all_trades):
+    """
+    Filter the raw trades down to our 7 target politicians.
+    Returns a dict keyed by politician slug with list of their trades.
+    """
+    results = {key: [] for key in POLITICIANS}
 
-
-def fetch_pelosi_congress():
-    print("Fetching Congress trades from EDGAR full-text search...")
-    # Pelosi files Form 4 and periodic transaction reports via eFD
-    # We search EDGAR for her directly and also pull
-    # recent congressional stock act filings from SEC EDGAR search
-    trades = []
-
-    # Search for Pelosi in EDGAR
-    r = requests.get(
-        'https://efts.sec.gov/LATEST/search-index?q=%22Nancy+Pelosi%22&forms=4&dateRange=custom&startdt=2023-01-01',
-        headers=HEADERS
-    )
-    if r.status_code == 200:
-        hits = r.json().get('hits', {}).get('hits', [])
-        print(f"  Found {len(hits)} EDGAR filings mentioning Pelosi")
-        for h in hits[:10]:
-            src = h.get('_source', {})
-            trades.append({
-                'date':   src.get('period_of_report', ''),
-                'entity': src.get('entity_name', ''),
-                'form':   src.get('form_type', ''),
-                'file':   src.get('file_num', ''),
-            })
-
-    # Also extract tickers visible in Capitol Trades page
-    # even though JS renders the table, ticker symbols are in the HTML
-    r2 = requests.get(
-        'https://www.capitoltrades.com/trades?politician=P000197&per_page=96',
-        headers=HEADERS
-    )
-    # extract tickers that appear near buy/sell context
-    known_tickers = re.findall(
-        r'\b(GOOGL|AMZN|AAPL|NVDA|MSFT|TSLA|META|JPM|UNH|JNJ|PG|NFLX|AMD|'
-        r'INTC|CRM|PYPL|DIS|BA|GS|MS|V|MA|HD|WMT|CVX|XOM|BAC)\b',
-        r2.text
-    )
-    from collections import Counter
-    ticker_counts = Counter(known_tickers).most_common(15)
-    print(f"  Extracted {len(ticker_counts)} tickers from Capitol Trades page")
-    for ticker, count in ticker_counts:
-        trades.append({
-            'ticker':     ticker,
-            'politician': 'Nancy Pelosi',
-            'mentions':   count,
-            'source':     'capitoltrades_html',
-        })
-
-    return trades
-
-
-def fetch_musk_form4():
-    print("Fetching Form 4 filings for Elon Musk...")
-    r = requests.get('https://data.sec.gov/submissions/CIK0001494730.json', headers=HEADERS).json()
-    recent = r['filings']['recent']
-    trades = []
-    for i, form in enumerate(recent['form']):
-        if form == '4':
-            trades.append({
-                'date':      recent['filingDate'][i],
-                'accession': recent['accessionNumber'][i],
-            })
-            if len(trades) >= 10:
+    for t in all_trades:
+        rep_name = t.get('representative', t.get('senator', ''))
+        for key, info in POLITICIANS.items():
+            last_name = info['name'].split()[-1]
+            if last_name.lower() in rep_name.lower():
+                ticker = t.get('ticker', '')
+                if not ticker or ticker == '--':
+                    continue
+                trade_type = t.get('type', t.get('transaction_type', '')).lower()
+                # Normalise to buy / sell
+                if 'purchase' in trade_type or 'buy' in trade_type:
+                    side = 'buy'
+                elif 'sale' in trade_type or 'sell' in trade_type:
+                    side = 'sell'
+                else:
+                    continue
+                results[key].append({
+                    'ticker':      ticker.upper().strip(),
+                    'politician':  info['name'],
+                    'side':        side,
+                    'amount':      t.get('amount', '$1,001 - $15,000'),
+                    'date':        t.get('transaction_date', t.get('date', '')),
+                    'filing_date': t.get('disclosure_date', t.get('filed', '')),
+                    'type':        t.get('asset_type', 'stock'),
+                })
                 break
-    print(f"  Found {len(trades)} Form 4 filings")
-    return trades
+
+    for key, trades in results.items():
+        print(f"  {POLITICIANS[key]['name']}: {len(trades)} trades found")
+
+    return results
+
+
+def score_trades(politician_trades):
+    """
+    Score each ticker across all 7 politicians.
+    Buys add score, sells subtract. Weighted by politician track record.
+    Returns a sorted list of (ticker, score_data) tuples.
+    """
+    from collections import defaultdict
+    scores = defaultdict(lambda: {
+        'ticker': '',
+        'score': 0.0,
+        'buy_count': 0,
+        'sell_count': 0,
+        'politicians': [],
+        'total_amount_k': 0,
+    })
+
+    for key, trades in politician_trades.items():
+        weight = POLITICIAN_WEIGHTS.get(key, 1.0)
+        # count buys per ticker for this politician
+        ticker_buys  = Counter(t['ticker'] for t in trades if t['side'] == 'buy')
+        ticker_sells = Counter(t['ticker'] for t in trades if t['side'] == 'sell')
+        all_tickers  = set(ticker_buys) | set(ticker_sells)
+
+        for ticker in all_tickers:
+            buys  = ticker_buys.get(ticker, 0)
+            sells = ticker_sells.get(ticker, 0)
+            net   = buys - sells
+            if net <= 0:
+                continue  # only surface net-buy positions
+
+            entry = scores[ticker]
+            entry['ticker'] = ticker
+            entry['score']     += net * weight
+            entry['buy_count'] += buys
+            if key not in entry['politicians']:
+                entry['politicians'].append(key)
+
+    # Conviction multiplier for stocks bought by multiple politicians
+    for ticker, entry in scores.items():
+        n = len(entry['politicians'])
+        if n >= 3:
+            entry['score'] *= 1.5
+        elif n >= 2:
+            entry['score'] *= 1.2
+
+    ranked = sorted(scores.items(), key=lambda x: x[1]['score'], reverse=True)
+    return ranked
+
+
+def build_suggestions(ranked, politician_trades, top_n=10):
+    suggestions = []
+    for ticker, entry in ranked[:top_n]:
+        pol_names = [POLITICIANS[k]['name'] for k in entry['politicians'] if k in POLITICIANS]
+        suggestions.append({
+            'pk':         f'suggestion#{ticker}',
+            'sk':         datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+            'ticker':     ticker,
+            'name':       ticker,
+            'score':      round(entry['score'], 4),
+            'conviction': len(entry['politicians']),
+            'buy_count':  entry['buy_count'],
+            'investors':  ', '.join(pol_names),
+            'action':     'BUY',
+            'status':     'pending',
+            'created':    datetime.now(timezone.utc).isoformat(),
+        })
+    return suggestions
 
 
 if __name__ == '__main__':
-    results = {}
+    all_trades = fetch_all_congressional_trades()
 
-    for key, inv in INVESTORS_13F.items():
-        print(f"\n{'='*45}")
-        holdings = fetch_13f(key, inv['cik'], inv['cik_int'], inv['name'])
-        results[key] = holdings
-        if holdings:
-            print(f"  Top 3:")
-            for h in holdings[:3]:
-                print(f"    {h['name']}: ${h['value']:,}k")
+    print("\nFiltering for target politicians...")
+    politician_trades = filter_by_politicians(all_trades)
 
-    print(f"\n{'='*45}")
-    results['wood'] = fetch_ark_wood()
-    if results['wood']:
-        print(f"  Top 3:")
-        for h in results['wood'][:3]:
-            print(f"    {h['name']}: ${h['value']:,}")
+    print("\nScoring tickers...")
+    ranked = score_trades(politician_trades)
 
-    print(f"\n{'='*45}")
-    results['pelosi'] = fetch_pelosi_congress()
+    suggestions = build_suggestions(ranked, politician_trades, top_n=10)
 
-    print(f"\n{'='*45}")
-    results['musk'] = fetch_musk_form4()
+    print(f"\nTop {len(suggestions)} signals:")
+    print(f"{'Rank':<5} {'Ticker':<10} {'Score':>8} {'Conviction':>10}  Investors")
+    print('-' * 70)
+    for i, s in enumerate(suggestions, 1):
+        print(f"{i:<5} {s['ticker']:<10} {s['score']:>8.2f} {s['conviction']:>10}  {s['investors']}")
 
-    print(f"\n{'='*45}")
-    with open('/home/ubuntu/holdings.json', 'w') as f:
-        json.dump(results, f, indent=2)
-    print("Saved to holdings.json")
+    out_path = HERE / 'suggestions.json'
+    with open(out_path, 'w') as f:
+        json.dump(suggestions, f, indent=2)
+    print(f"\nSaved {len(suggestions)} suggestions to {out_path}")
 
-    print("\nSummary:")
-    for k, v in results.items():
-        print(f"  {k:10s}: {len(v)} records")
-EOF
-
-python3 /home/ubuntu/fetcher.py
+    raw_path = HERE / 'politician_trades.json'
+    with open(raw_path, 'w') as f:
+        json.dump(politician_trades, f, indent=2)
+    print(f"Saved raw trades to {raw_path}")

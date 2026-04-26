@@ -4,18 +4,17 @@ class MirrorStrategy:
         self.max_alloc = max_alloc
 
     def calculate_notional(self, amount_str: str) -> float:
-        """Optimized to calculate the midpoint of reported ranges for valid volume tracking."""
+        """Calculate midpoint of the reported STOCK Act dollar range."""
         try:
             clean = amount_str.replace('$', '').replace(',', '').replace(' ', '')
             if '-' in clean:
                 parts = clean.split('-')
-                v_min, v_max = float(parts), float(parts[3])
-                # Validity: Use midpoint (Vm) for more accurate conviction sizing [2]
+                v_min = float(parts[0])
+                v_max = float(parts[1])  # was parts[3] — bug fix
                 midpoint = (v_min + v_max) / 2
             else:
                 midpoint = float(clean.replace('+', ''))
-            
-            # Allocation: 5% of buying power or the trade midpoint, whichever is smaller
+
             target_amt = self.buying_power * self.max_alloc
             return round(min(target_amt, midpoint), 2)
         except Exception:
