@@ -1,10 +1,13 @@
 import streamlit as st
 import json
 import os
+import requests as _req
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from knowledge import TICKER_PROFILES, TRADER_BIOS, SCORING_EXPLAINER, confidence_label
 
 HERE = Path(__file__).parent
 
@@ -350,6 +353,30 @@ def load_positions():
     except Exception:
         return []
 
+@st.cache_data(ttl=3600)
+def fetch_price_history(symbol):
+    """30-day daily closes via Alpaca market data. Returns list of (date, close) or []."""
+    key    = os.getenv('ALPACA_KEY', '')
+    secret = os.getenv('ALPACA_SECRET', '')
+    if not key:
+        return []
+    end   = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    start = (datetime.now(timezone.utc) - timedelta(days=45)).strftime('%Y-%m-%d')
+    try:
+        r = _req.get(
+            f'https://data.alpaca.markets/v2/stocks/{symbol}/bars',
+            params={'timeframe': '1Day', 'start': start, 'end': end, 'limit': 30, 'feed': 'iex'},
+            headers={'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret},
+            timeout=10,
+        )
+        if not r.ok:
+            return []
+        bars = r.json().get('bars', [])
+        return [(b['t'][:10], round(b['c'], 2)) for b in bars]
+    except Exception:
+        return []
+
+
 @st.cache_data(ttl=300)
 def load_suggestions():
     try:
@@ -486,9 +513,10 @@ if st.session_state.tab == 'feed':
         buy_count  = int(s.get('buy_count', conviction))
         total      = CATEGORIES[cat]['count']
         bar_pct    = min(100, int((conviction / total) * 100))
+        conf_label, conf_color = confidence_label(conviction, total, score)
 
-        bar_cls = 'bar-fill' if conviction >= 3 else ('bar-fill-amber' if conviction == 2 else 'bar-fill-low')
-        pills   = ''.join(f'<span class="pill">{p.strip()}</span>' for p in investors.split(',') if p.strip())
+        pills = ''.join(f'<span class="pill">{p.strip()}</span>' for p in investors.split(',') if p.strip())
+        profile = TICKER_PROFILES.get(ticker, {})
 
         st.markdown(f"""
         <div class="card">
@@ -496,27 +524,81 @@ if st.session_state.tab == 'feed':
             <div class="ticker-wrap">
               <span class="ticker" style="color:{accent}">{ticker}</span>
               <span class="side-tag">BUY</span>
+              <span style="font-size:0.58rem;font-family:var(--mono);color:{conf_color};background:{conf_color}14;border:1px solid {conf_color}40;border-radius:3px;padding:2px 6px">{conf_label}</span>
             </div>
             <span class="score-badge" style="color:{accent};border-color:{accent}33;background:{accent}0a">{score:.2f}</span>
           </div>
+          {f'<div style="font-size:0.72rem;color:var(--subtext);margin-bottom:8px">{profile.get("company","")} &nbsp;·&nbsp; {profile.get("sector","")}</div>' if profile else ''}
           <div class="holder-pills">{pills}</div>
-          <div class="bar-track"><div class="{bar_cls}" style="width:{bar_pct}%;background:{accent}"></div></div>
+          <div class="bar-track"><div style="height:2px;border-radius:2px;background:{accent};width:{bar_pct}%"></div></div>
           <div class="stats">
-            <div class="stat">
-              <div class="stat-label">Conviction</div>
-              <div class="stat-val">{conviction} / {total}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Disclosures</div>
-              <div class="stat-val">{buy_count}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Signal</div>
-              <div class="stat-val">{score:.1f}</div>
-            </div>
+            <div class="stat"><div class="stat-label">Conviction</div><div class="stat-val">{conviction} / {total}</div></div>
+            <div class="stat"><div class="stat-label">Disclosures</div><div class="stat-val">{buy_count}</div></div>
+            <div class="stat"><div class="stat-label">Signal</div><div class="stat-val">{score:.1f}</div></div>
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # ── DETAIL EXPANDER ──
+        with st.expander(f"  DEEP DIVE  {ticker}", expanded=False):
+            # Price chart
+            bars = fetch_price_history(ticker)
+            if bars:
+                closes = [b[1] for b in bars]
+                dates  = [b[0] for b in bars]
+                pct_chg = ((closes[-1] - closes[0]) / closes[0] * 100) if closes[0] else 0
+                chg_col = '#00e87a' if pct_chg >= 0 else '#ff3f5e'
+                st.markdown(f"""
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                  <span style="font-family:var(--mono);font-size:1.1rem;color:{accent}">${closes[-1]:,.2f}</span>
+                  <span style="font-family:var(--mono);font-size:0.8rem;color:{chg_col}">{pct_chg:+.1f}% · 30d</span>
+                </div>""", unsafe_allow_html=True)
+                st.line_chart(
+                    data={'Price': closes},
+                    height=120,
+                    use_container_width=True,
+                )
+            else:
+                st.markdown('<div style="font-size:0.72rem;color:var(--subtext);margin-bottom:8px">Price history unavailable</div>', unsafe_allow_html=True)
+
+            # Ticker profile
+            if profile:
+                st.markdown(f"""
+                <div style="margin:12px 0 8px">
+                  <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">ABOUT {ticker}</div>
+                  <div style="font-size:0.78rem;color:var(--text);line-height:1.6">{profile.get('summary','')}</div>
+                  <div style="margin-top:6px;font-size:0.65rem;color:var(--subtext)">Risk level: {'▪' * profile.get('risk',3)}{'▫' * (5 - profile.get('risk',3))} {profile.get('risk',3)}/5</div>
+                </div>""", unsafe_allow_html=True)
+
+            # Trader bios
+            trader_list = [p.strip() for p in investors.split(',') if p.strip()]
+            if trader_list:
+                st.markdown('<div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px">WHO BOUGHT IT</div>', unsafe_allow_html=True)
+                for trader in trader_list:
+                    bio = TRADER_BIOS.get(trader, {})
+                    if bio:
+                        st.markdown(f"""
+                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">
+                          <div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:2px">{trader}</div>
+                          <div style="font-size:0.65rem;color:var(--subtext);margin-bottom:6px">{bio.get('role','')}</div>
+                          <div style="font-size:0.7rem;color:var(--text);line-height:1.5;margin-bottom:4px"><strong>Track record:</strong> {bio.get('track_record','')}</div>
+                          <div style="font-size:0.7rem;color:var(--text);line-height:1.5;margin-bottom:4px"><strong>Style:</strong> {bio.get('style','')}</div>
+                          <div style="font-size:0.7rem;color:var(--subtext);line-height:1.5"><strong>Notable:</strong> {bio.get('notable','')}</div>
+                        </div>""", unsafe_allow_html=True)
+
+            # AI reasoning
+            reasoning = SCORING_EXPLAINER.get(cat, '')
+            if reasoning:
+                st.markdown(f"""
+                <div style="background:#00e87a08;border:1px solid #00e87a20;border-radius:8px;padding:12px;margin-top:8px">
+                  <div style="font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);margin-bottom:6px">WHY MIRROR AI PICKED THIS</div>
+                  <div style="font-size:0.72rem;color:var(--subtext);line-height:1.6">{reasoning}</div>
+                  <div style="margin-top:8px;font-size:0.7rem;color:var(--text)">
+                    Confidence: <span style="color:{conf_color};font-family:var(--mono)">{conf_label}</span> &nbsp;·&nbsp;
+                    Score: <span style="font-family:var(--mono);color:{accent}">{score:.2f}</span> &nbsp;·&nbsp;
+                    {conviction} of {total} holders bought
+                  </div>
+                </div>""", unsafe_allow_html=True)
 
         btn_a, btn_r = st.columns([3, 2])
         with btn_a:
