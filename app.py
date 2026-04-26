@@ -11,158 +11,189 @@ from knowledge import TICKER_PROFILES, TICKER_DOMAIN, TRADER_BIOS, SCORING_EXPLA
 
 HERE = Path(__file__).parent
 
-# Sidebar state must be initialised before set_page_config
-if 'sidebar_state' not in st.session_state:
-    st.session_state.sidebar_state = 'expanded'
+st.set_page_config(page_title="MIRROR AI", layout="wide", initial_sidebar_state="collapsed")
 
-st.set_page_config(
-    page_title="MIRROR AI",
-    layout="wide",
-    initial_sidebar_state=st.session_state.sidebar_state,
-)
-
-# ── CSS ──────────────────────────────────────────────────────────────────────
-# IMPORTANT: No curly-brace CSS values inside Python f-strings in st.markdown.
-# All dynamic colors go through CSS custom properties set on data attributes,
-# or through pre-defined accent classes (acc-green, acc-blue, etc.).
 # ─────────────────────────────────────────────────────────────────────────────
-STYLE = """
+# FULL CSS — fixed topbar + slide-in drawer, no Streamlit sidebar dependency
+# ─────────────────────────────────────────────────────────────────────────────
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
 :root {
-  --bg:      #04080f;
-  --surf:    #080e1c;
-  --card:    #0b1222;
-  --glass:   rgba(255,255,255,0.025);
-  --bdr:     rgba(255,255,255,0.07);
-  --bdr2:    rgba(255,255,255,0.12);
-  --green:   #00d4aa;
-  --red:     #ff4757;
-  --amber:   #ffa502;
-  --blue:    #38bdf8;
-  --purple:  #a78bfa;
-  --gold:    #fbbf24;
-  --silver:  #94a3b8;
-  --bronze:  #b45309;
-  --text:    #e2e8f0;
-  --sub:     #7c8fad;
-  --muted:   #3a4a62;
-  --mono:    'Space Mono', monospace;
-  --sans:    'Space Grotesk', sans-serif;
+  --bg:     #04080f;
+  --surf:   #07101f;
+  --card:   #0a1220;
+  --glass:  rgba(255,255,255,0.03);
+  --bdr:    rgba(255,255,255,0.07);
+  --bdr2:   rgba(255,255,255,0.13);
+  --green:  #00d4aa;
+  --red:    #ff4757;
+  --amber:  #ffa502;
+  --blue:   #38bdf8;
+  --purple: #a78bfa;
+  --gold:   #fbbf24;
+  --silver: #94a3b8;
+  --bronze: #b45309;
+  --text:   #e2e8f0;
+  --sub:    #7c8fad;
+  --muted:  #3a4a62;
+  --mono:   'Space Mono', monospace;
+  --sans:   'Space Grotesk', sans-serif;
+  --bar-h:  56px;
+  --drawer: 280px;
 }
 
-html, body,
-[data-testid="stApp"],
-[data-testid="stAppViewContainer"] {
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, [data-testid="stApp"], [data-testid="stAppViewContainer"] {
   background: var(--bg) !important;
   font-family: var(--sans) !important;
   color: var(--text) !important;
 }
 
-[data-testid="stHeader"],
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-#MainMenu, footer { display: none !important; }
+/* Hide ALL Streamlit chrome including sidebar toggle arrow */
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"],
+[data-testid="stSidebar"], #MainMenu, footer { display: none !important; }
 
+/* Push main content below our custom topbar */
 [data-testid="stMainBlockContainer"] {
-  padding: 20px 28px 80px !important;
-  max-width: 860px !important;
+  padding: calc(var(--bar-h) + 20px) 28px 80px !important;
+  max-width: 900px !important;
 }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-  background: var(--surf) !important;
-  border-right: 1px solid var(--bdr) !important;
-  min-width: 230px !important;
-}
-[data-testid="stSidebar"] > div:first-child { padding: 0 !important; }
-section[data-testid="stSidebar"][aria-expanded="false"] { margin-left: -230px !important; }
-
-/* Metrics */
-[data-testid="metric-container"] {
-  background: var(--glass) !important;
-  border: 1px solid var(--bdr) !important;
-  border-radius: 12px !important;
-  padding: 14px 18px !important;
-}
-[data-testid="stMetricValue"] {
-  font-family: var(--mono) !important;
-  font-size: 1.2rem !important;
-  font-weight: 700 !important;
-  color: var(--green) !important;
-}
-[data-testid="stMetricLabel"] {
-  font-size: 0.58rem !important;
-  letter-spacing: 0.14em !important;
-  text-transform: uppercase !important;
-  color: var(--sub) !important;
+/* ── TOPBAR ── */
+#mirror-topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--bar-h);
+  background: rgba(4,8,15,0.95);
+  border-bottom: 1px solid var(--bdr);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  z-index: 9000;
+  padding: 0 20px;
+  font-family: var(--sans);
 }
 
-/* Buttons */
-div.stButton > button {
-  width: 100% !important;
-  border-radius: 8px !important;
-  font-family: var(--mono) !important;
-  font-size: 0.68rem !important;
-  letter-spacing: 0.07em !important;
-  padding: 9px 12px !important;
-  border: 1px solid var(--bdr2) !important;
-  background: var(--glass) !important;
-  color: var(--sub) !important;
-  transition: all 0.18s ease !important;
+#menu-btn {
+  width: 40px; height: 40px; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.18s, background 0.18s;
+  flex-shrink: 0;
+  margin-right: 16px;
 }
-div.stButton > button:hover {
-  border-color: var(--green) !important;
-  color: var(--green) !important;
-  background: rgba(0,212,170,0.07) !important;
-  transform: translateY(-1px) !important;
+#menu-btn:hover { border-color: var(--green); background: rgba(0,212,170,0.07); }
+#menu-btn span {
+  display: block; width: 18px; height: 1.5px;
+  background: var(--sub);
+  border-radius: 2px;
+  transition: background 0.18s, transform 0.25s, opacity 0.25s;
 }
-div.stButton > button[kind="primary"] {
-  background: rgba(0,212,170,0.1) !important;
-  border-color: var(--green) !important;
-  color: var(--green) !important;
+body.drawer-open #menu-btn span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); background: var(--green); }
+body.drawer-open #menu-btn span:nth-child(2) { opacity: 0; }
+body.drawer-open #menu-btn span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); background: var(--green); }
+
+#wordmark {
+  font-family: var(--mono);
+  font-size: 1rem; font-weight: 700; letter-spacing: 0.22em;
+  background: linear-gradient(90deg, var(--green), var(--blue));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-right: auto;
 }
 
-/* Expander */
-[data-testid="stExpander"] {
-  background: var(--glass) !important;
-  border: 1px solid var(--bdr) !important;
-  border-radius: 10px !important;
-  margin-top: -4px !important;
-  margin-bottom: 10px !important;
+/* Topbar quick-nav pills */
+#topbar-nav { display: flex; gap: 6px; align-items: center; }
+.tn-pill {
+  font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.08em;
+  padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--bdr2); color: var(--sub);
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  background: transparent;
 }
-[data-testid="stExpander"] summary {
-  font-family: var(--mono) !important;
-  font-size: 0.65rem !important;
-  letter-spacing: 0.09em !important;
-  color: var(--sub) !important;
+.tn-pill:hover { border-color: var(--green); color: var(--green); background: rgba(0,212,170,0.06); }
+.tn-pill.active { background: rgba(0,212,170,0.1); border-color: var(--green); color: var(--green); }
+
+/* Portfolio chip in topbar */
+#port-chip {
+  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.05em;
+  padding: 5px 12px; border-radius: 6px;
+  background: rgba(0,212,170,0.07); border: 1px solid rgba(0,212,170,0.22);
+  color: var(--green); margin-left: 12px; white-space: nowrap;
 }
 
-/* ── Accent color classes (no curly braces needed inline) ── */
-.acc-green  { color: var(--green) !important; }
-.acc-blue   { color: var(--blue)  !important; }
-.acc-amber  { color: var(--amber) !important; }
-.acc-purple { color: var(--purple)!important; }
-.acc-red    { color: var(--red)   !important; }
-.acc-sub    { color: var(--sub)   !important; }
-.acc-muted  { color: var(--muted) !important; }
-.acc-text   { color: var(--text)  !important; }
-.acc-gold   { color: var(--gold)  !important; }
-.acc-silver { color: var(--silver)!important; }
-.acc-bronze { color: var(--bronze)!important; }
+/* ── DRAWER ── */
+#mirror-drawer {
+  position: fixed;
+  top: var(--bar-h); left: 0; bottom: 0;
+  width: var(--drawer);
+  background: var(--surf);
+  border-right: 1px solid var(--bdr);
+  transform: translateX(calc(-1 * var(--drawer)));
+  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  z-index: 8999;
+  overflow-y: auto;
+  padding: 24px 0 40px;
+}
+body.drawer-open #mirror-drawer { transform: translateX(0); }
 
-.bdr-green  { border-color: rgba(0,212,170,0.25)  !important; }
-.bdr-blue   { border-color: rgba(56,189,248,0.25) !important; }
-.bdr-amber  { border-color: rgba(255,165,2,0.25)  !important; }
-.bdr-purple { border-color: rgba(167,139,250,0.25)!important; }
-.bdr-red    { border-color: rgba(255,71,87,0.25)  !important; }
+/* Drawer overlay */
+#drawer-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 8998;
+  backdrop-filter: blur(2px);
+}
+body.drawer-open #drawer-overlay { display: block; }
 
-.bg-green  { background: rgba(0,212,170,0.08)  !important; }
-.bg-blue   { background: rgba(56,189,248,0.08) !important; }
-.bg-amber  { background: rgba(255,165,2,0.08)  !important; }
-.bg-purple { background: rgba(167,139,250,0.08)!important; }
-.bg-red    { background: rgba(255,71,87,0.08)  !important; }
+.drw-section {
+  font-family: var(--mono); font-size: 0.52rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 16px 20px 6px;
+}
+.drw-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px; cursor: pointer;
+  font-size: 0.82rem; color: var(--sub);
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+}
+.drw-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.drw-item.active { color: var(--green); border-left-color: var(--green); background: rgba(0,212,170,0.05); }
+.drw-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.drw-divider { height: 1px; background: var(--bdr); margin: 12px 20px; }
+
+/* Portfolio card in drawer */
+.drw-port {
+  margin: 0 16px 16px;
+  background: var(--glass); border: 1px solid var(--bdr);
+  border-radius: 12px; padding: 14px 16px;
+}
+.drw-port-eq { font-family: var(--mono); font-size: 1.25rem; font-weight: 700; color: var(--green); margin: 6px 0; }
+.drw-port-row { display: flex; justify-content: space-between; font-size: 0.63rem; margin-top: 4px; color: var(--sub); }
+.drw-port-row span:last-child { font-family: var(--mono); color: var(--text); }
+
+/* Trade size slider label */
+.drw-slider-lbl { font-family: var(--mono); font-size: 0.6rem; color: var(--sub); text-align: center; margin-top: 4px; }
+
+/* ── ACCENT CSS classes ── */
+.acc-green  { color: var(--green)  !important; }
+.acc-blue   { color: var(--blue)   !important; }
+.acc-amber  { color: var(--amber)  !important; }
+.acc-purple { color: var(--purple) !important; }
+.acc-red    { color: var(--red)    !important; }
+.acc-sub    { color: var(--sub)    !important; }
+.acc-muted  { color: var(--muted)  !important; }
+.acc-text   { color: var(--text)   !important; }
+.acc-gold   { color: var(--gold)   !important; }
+.acc-silver { color: var(--silver) !important; }
+.acc-bronze { color: var(--bronze) !important; }
 
 .bar-green  { background: var(--green)  !important; }
 .bar-blue   { background: var(--blue)   !important; }
@@ -170,33 +201,12 @@ div.stButton > button[kind="primary"] {
 .bar-purple { background: var(--purple) !important; }
 .bar-red    { background: var(--red)    !important; }
 
-/* ── Component styles ── */
-.wordmark {
-  font-family: var(--mono); font-size: 1rem; font-weight: 700;
-  letter-spacing: 0.28em; padding: 22px 20px 2px; text-align: center;
-  background: linear-gradient(90deg, var(--green), var(--blue));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
-.sub-tag {
-  font-size: 0.55rem; color: var(--muted); text-align: center;
-  letter-spacing: 0.17em; text-transform: uppercase; margin-bottom: 18px;
-}
-.nav-lbl {
-  font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--muted); padding: 14px 18px 5px; font-family: var(--mono);
-}
-.sec-lbl {
-  font-size: 0.57rem; letter-spacing: 0.17em; text-transform: uppercase;
-  color: var(--muted); margin: 18px 0 10px; padding-bottom: 8px;
-  border-bottom: 1px solid var(--bdr); font-family: var(--mono);
-}
-
-/* Card */
+/* ── Signal card ── */
 .card {
   background: linear-gradient(160deg, var(--card) 0%, #05101e 100%);
-  border: 1px solid var(--bdr);
-  border-radius: 16px; padding: 16px 18px 12px;
-  margin-bottom: 2px; position: relative; overflow: hidden;
+  border: 1px solid var(--bdr); border-radius: 16px;
+  padding: 16px 18px 12px; margin-bottom: 2px;
+  position: relative; overflow: hidden;
   transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s;
 }
 .card:hover { border-color: var(--bdr2); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
@@ -205,8 +215,6 @@ div.stButton > button[kind="primary"] {
   background: linear-gradient(90deg, transparent, var(--bdr2), transparent);
 }
 .card-sell { border-color: rgba(255,71,87,0.18) !important; }
-
-/* Card header */
 .ch { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .ch-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
 .logo-wrap {
@@ -217,98 +225,99 @@ div.stButton > button[kind="primary"] {
 .logo-wrap img { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
 .logo-fb { font-family: var(--mono); font-size: 0.7rem; color: var(--sub); font-weight: 700; }
 .t-sym { font-family: var(--mono); font-size: 1.2rem; font-weight: 700; line-height: 1.1; }
-.t-co  { font-size: 0.66rem; color: var(--sub); margin-top: 1px; }
+.t-co  { font-size: 0.65rem; color: var(--sub); margin-top: 1px; }
 .score-ring {
-  font-family: var(--mono); font-size: 0.92rem; font-weight: 700;
+  font-family: var(--mono); font-size: 0.9rem; font-weight: 700;
   width: 46px; height: 46px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid; flex-shrink: 0;
 }
-
-/* Badges */
 .badges { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0 6px; }
-.badge {
-  font-family: var(--mono); font-size: 0.55rem; letter-spacing: 0.08em;
-  padding: 2px 7px; border-radius: 4px; border: 1px solid;
-}
-.b-buy    { background: rgba(0,212,170,0.1);   border-color: rgba(0,212,170,0.3);  color: var(--green); }
-.b-sell   { background: rgba(255,71,87,0.1);   border-color: rgba(255,71,87,0.3);  color: var(--red); }
-.b-high   { background: rgba(0,212,170,0.08);  border-color: rgba(0,212,170,0.22); color: var(--green); }
-.b-medium { background: rgba(255,165,2,0.08);  border-color: rgba(255,165,2,0.22); color: var(--amber); }
-.b-low    { background: rgba(124,143,173,0.08);border-color: rgba(124,143,173,0.2);color: var(--sub); }
-
-/* Pills */
+.badge { font-family: var(--mono); font-size: 0.54rem; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 4px; border: 1px solid; }
+.b-buy    { background: rgba(0,212,170,0.1);    border-color: rgba(0,212,170,0.3);   color: var(--green); }
+.b-sell   { background: rgba(255,71,87,0.1);    border-color: rgba(255,71,87,0.3);   color: var(--red); }
+.b-high   { background: rgba(0,212,170,0.08);   border-color: rgba(0,212,170,0.22);  color: var(--green); }
+.b-medium { background: rgba(255,165,2,0.08);   border-color: rgba(255,165,2,0.22);  color: var(--amber); }
+.b-low    { background: rgba(124,143,173,0.08); border-color: rgba(124,143,173,0.2); color: var(--sub); }
 .pills { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
-.pill {
-  font-size: 0.58rem; color: var(--sub); background: rgba(255,255,255,0.03);
-  border: 1px solid var(--bdr); border-radius: 4px; padding: 2px 7px; font-family: var(--mono);
-}
-
-/* Conviction bar track */
+.pill { font-size: 0.58rem; color: var(--sub); background: rgba(255,255,255,0.03); border: 1px solid var(--bdr); border-radius: 4px; padding: 2px 7px; font-family: var(--mono); }
 .btrack { background: var(--bdr); border-radius: 3px; height: 2px; margin: 6px 0 10px; position: relative; overflow: hidden; }
-
-/* Stats */
 .stats { display: flex; gap: 20px; margin-bottom: 4px; }
-.sl { font-size: 0.55rem; color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 2px; }
+.sl { font-size: 0.54rem; color: var(--muted); letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 2px; }
 .sv { font-family: var(--mono); font-size: 0.8rem; color: var(--text); }
-
-/* Reviewed */
 .card-done { opacity: 0.28; pointer-events: none; }
-.b-mirrored { font-family: var(--mono); font-size: 0.55rem; padding: 2px 7px; border-radius: 4px; background: rgba(0,212,170,0.08); border: 1px solid var(--green); color: var(--green); }
-.b-skipped  { font-family: var(--mono); font-size: 0.55rem; padding: 2px 7px; border-radius: 4px; background: rgba(255,71,87,0.08); border: 1px solid var(--red); color: var(--red); }
+.b-mirrored { font-family: var(--mono); font-size: 0.54rem; padding: 2px 7px; border-radius: 4px; background: rgba(0,212,170,0.08); border: 1px solid var(--green); color: var(--green); }
+.b-skipped  { font-family: var(--mono); font-size: 0.54rem; padding: 2px 7px; border-radius: 4px; background: rgba(255,71,87,0.08); border: 1px solid var(--red); color: var(--red); }
 
 /* Toasts */
 .t-ok  { background: rgba(0,212,170,0.07); border: 1px solid rgba(0,212,170,0.28); border-radius: 10px; padding: 9px 15px; font-size: 0.7rem; color: var(--green); font-family: var(--mono); margin-bottom: 7px; }
 .t-err { background: rgba(255,71,87,0.07);  border: 1px solid rgba(255,71,87,0.28);  border-radius: 10px; padding: 9px 15px; font-size: 0.7rem; color: var(--red);   font-family: var(--mono); margin-bottom: 7px; }
 
-/* Portfolio sidebar card */
-.port-card { margin: 0 14px 16px; background: var(--glass); border: 1px solid var(--bdr); border-radius: 12px; padding: 14px 16px; }
-.port-eq { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--green); margin-bottom: 6px; }
-.port-row { display: flex; justify-content: space-between; font-size: 0.64rem; margin-top: 4px; }
+/* Section label */
+.sec-lbl { font-size: 0.57rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--bdr); font-family: var(--mono); }
 
-/* Deep-dive */
-.ddl { font-size: 0.54rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--muted); margin: 14px 0 7px; font-family: var(--mono); }
+/* Deep dive */
+.ddl { font-size: 0.53rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--muted); margin: 14px 0 7px; font-family: var(--mono); }
 .bio-card { background: rgba(255,255,255,0.02); border: 1px solid var(--bdr); border-radius: 10px; padding: 12px 15px; margin-bottom: 7px; }
 .bio-name { font-size: 0.84rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .bio-role { font-size: 0.61rem; color: var(--sub); margin-bottom: 7px; }
 .bio-line { font-size: 0.68rem; color: var(--sub); line-height: 1.65; margin-bottom: 3px; }
 .bio-line strong { color: var(--text); }
 .ai-box { background: rgba(0,212,170,0.03); border: 1px solid rgba(0,212,170,0.13); border-radius: 10px; padding: 13px 15px; margin-top: 10px; }
-.ai-lbl  { font-size: 0.54rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--green); margin-bottom: 7px; font-family: var(--mono); }
+.ai-lbl  { font-size: 0.53rem; letter-spacing: 0.17em; text-transform: uppercase; color: var(--green); margin-bottom: 7px; font-family: var(--mono); }
 .ai-text { font-size: 0.7rem; color: var(--sub); line-height: 1.72; }
 
 /* Positions */
 .pos-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--bdr); }
-.pos-sym { font-family: var(--mono); font-size: 0.96rem; font-weight: 700; }
+.pos-sym  { font-family: var(--mono); font-size: 0.96rem; font-weight: 700; }
 .pos-meta { font-size: 0.61rem; color: var(--sub); margin-top: 3px; }
+
+/* Metrics */
+[data-testid="metric-container"] { background: var(--glass) !important; border: 1px solid var(--bdr) !important; border-radius: 12px !important; padding: 14px 18px !important; }
+[data-testid="stMetricValue"]    { font-family: var(--mono) !important; font-size: 1.2rem !important; font-weight: 700 !important; color: var(--green) !important; }
+[data-testid="stMetricLabel"]    { font-size: 0.57rem !important; letter-spacing: 0.14em !important; text-transform: uppercase !important; color: var(--sub) !important; }
+
+/* Buttons */
+div.stButton > button {
+  width: 100% !important; border-radius: 8px !important;
+  font-family: var(--mono) !important; font-size: 0.68rem !important;
+  letter-spacing: 0.07em !important; padding: 9px 12px !important;
+  border: 1px solid var(--bdr2) !important;
+  background: var(--glass) !important; color: var(--sub) !important;
+  transition: all 0.18s ease !important;
+}
+div.stButton > button:hover { border-color: var(--green) !important; color: var(--green) !important; background: rgba(0,212,170,0.07) !important; transform: translateY(-1px) !important; }
+div.stButton > button[kind="primary"] { background: rgba(0,212,170,0.1) !important; border-color: var(--green) !important; color: var(--green) !important; }
+
+/* Expander */
+[data-testid="stExpander"] { background: var(--glass) !important; border: 1px solid var(--bdr) !important; border-radius: 10px !important; margin-top: -4px !important; margin-bottom: 10px !important; }
+[data-testid="stExpander"] summary { font-family: var(--mono) !important; font-size: 0.65rem !important; letter-spacing: 0.09em !important; color: var(--sub) !important; }
 
 /* Leaderboard */
 .lb-row { display: flex; align-items: center; gap: 12px; background: var(--glass); border: 1px solid var(--bdr); border-radius: 12px; padding: 10px 14px; margin-bottom: 7px; transition: border-color 0.15s; }
 .lb-row:hover { border-color: var(--bdr2); }
 .lb-rank { font-family: var(--mono); font-size: 0.67rem; color: var(--muted); min-width: 26px; }
 .lb-name { font-size: 0.81rem; font-weight: 500; color: var(--text); flex: 1; }
-.lb-score { font-family: var(--mono); font-size: 0.79rem; }
 
 .empty { text-align: center; padding: 56px 20px; color: var(--muted); font-size: 0.75rem; font-family: var(--mono); letter-spacing: 0.05em; line-height: 2.2; }
+
+/* Slider */
+[data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] { background: var(--green) !important; border-color: var(--green) !important; }
 </style>
-"""
-st.markdown(STYLE, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 # CONSTANTS
 # ─────────────────────────────────────────────
 CATEGORIES = {
-    'politicians': {'label': 'Politicians',    'acc': 'green',  'count': 8},
-    'ceos':        {'label': 'Superinvestors', 'acc': 'blue',   'count': 7},
-    'athletes':    {'label': 'Athletes',       'acc': 'amber',  'count': 7},
-    'sectors':     {'label': 'Sectors',        'acc': 'purple', 'count': 7},
+    'politicians': {'label': 'Politicians',    'acc': 'green',  'hex': '#00d4aa', 'count': 8},
+    'ceos':        {'label': 'Superinvestors', 'acc': 'blue',   'hex': '#38bdf8', 'count': 7},
+    'athletes':    {'label': 'Athletes',       'acc': 'amber',  'hex': '#ffa502', 'count': 7},
+    'sectors':     {'label': 'Sectors',        'acc': 'purple', 'hex': '#a78bfa', 'count': 7},
 }
-# Map acc name -> actual hex (for st.line_chart colors etc.)
-ACC_HEX = {'green': '#00d4aa', 'blue': '#38bdf8', 'amber': '#ffa502', 'purple': '#a78bfa', 'red': '#ff4757'}
 
 DECISIONS_FILE = HERE / 'decisions.json'
 TRADE_LOG_FILE = HERE / 'trade_log.json'
-
 
 # ─────────────────────────────────────────────
 # DATA HELPERS
@@ -362,18 +371,13 @@ def fetch_price_history(symbol):
         )
         if not r.ok:
             return []
-        return [(b['t'][:10], round(b['c'], 2)) for b in r.json().get('bars', [])]
+        return [round(b['c'], 2) for b in r.json().get('bars', [])]
     except Exception:
         return []
 
 def logo_url(ticker):
-    # Google's favicon service — browsers follow the 301 redirect automatically.
-    # Much more reliable than Clearbit from EC2 and no API key needed.
     domain = TICKER_DOMAIN.get(ticker, '')
-    if domain:
-        return 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=64'
-    return ''
-
+    return ('https://www.google.com/s2/favicons?domain=' + domain + '&sz=64') if domain else ''
 
 # ─────────────────────────────────────────────
 # ALPACA
@@ -409,7 +413,7 @@ def load_positions():
 def get_trade_notional(pct=None):
     if pct is None:
         pct = st.session_state.get('trade_pct', 0.5)
-    acct = load_account()
+    acct   = load_account()
     equity = float(acct.equity) if acct else 100000.0
     return max(10.0, round(equity * pct / 100.0, 2))
 
@@ -442,10 +446,9 @@ def place_order(symbol, side=OrderSide.BUY, category='', investors=''):
             'order_id': str(order.id), 'status': status,
             'timestamp': datetime.now(timezone.utc).isoformat(),
         })
-        return True, "id " + str(order.id)[:8] + "  " + status, notional
+        return True, str(order.id)[:8] + ' ' + status, notional
     except Exception as e:
         return False, str(e), None
-
 
 # ─────────────────────────────────────────────
 # SESSION STATE
@@ -458,124 +461,154 @@ if 'decisions' not in st.session_state:
 
 try:
     from streamlit_autorefresh import st_autorefresh
-    st_autorefresh(interval=30 * 60 * 1000, key="ar")
+    st_autorefresh(interval=30 * 60 * 1000, key='ar')
 except ImportError:
     pass
 
-# Compute once at top of render
 _notional = get_trade_notional()
 
-
 # ─────────────────────────────────────────────
-# SIDEBAR
+# TOPBAR + DRAWER (pure HTML/CSS/JS — no Streamlit sidebar at all)
 # ─────────────────────────────────────────────
-with st.sidebar:
-    st.markdown('<div class="wordmark">MIRROR AI</div>', unsafe_allow_html=True)
+sug   = load_suggestions()
+lu    = sug.get('last_updated')
+fresh = '—'
+if lu:
+    try:
+        age = datetime.now(timezone.utc) - datetime.fromisoformat(lu)
+        h   = int(age.total_seconds() // 3600)
+        fresh = (str(h) + 'h ago') if h < 24 else (str(age.days) + 'd ago')
+    except Exception:
+        pass
 
-    sug   = load_suggestions()
-    lu    = sug.get('last_updated')
-    fresh = 'No data'
-    if lu:
-        try:
-            age = datetime.now(timezone.utc) - datetime.fromisoformat(lu)
-            h   = int(age.total_seconds() // 3600)
-            fresh = (str(h) + 'h ago') if h < 24 else (str(age.days) + 'd ago')
-        except Exception:
-            pass
-    st.markdown('<div class="sub-tag">Updated ' + fresh + '</div>', unsafe_allow_html=True)
-
-    acct = load_account()
-    if acct:
-        eq  = float(acct.equity)
-        bp  = float(acct.buying_power)
-        pnl = eq - float(acct.last_equity)
-        pnl_cls = 'acc-green' if pnl >= 0 else 'acc-red'
-        st.markdown(
-            '<div class="port-card">'
-            '<div style="font-size:0.54rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;font-family:var(--mono)">Portfolio</div>'
-            '<div class="port-eq">$' + '{:,.0f}'.format(eq) + '</div>'
-            '<div class="port-row"><span style="color:var(--sub)">Buying power</span>'
-            '<span style="font-family:var(--mono);color:var(--text)">$' + '{:,.0f}'.format(bp) + '</span></div>'
-            '<div class="port-row"><span style="color:var(--sub)">Today</span>'
-            '<span class="' + pnl_cls + '" style="font-family:var(--mono)">$' + '{:+,.2f}'.format(pnl) + '</span></div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-
-    st.markdown('<div class="nav-lbl">Navigate</div>', unsafe_allow_html=True)
-    for tk, tl in [('feed', 'Signal Feed'), ('positions', 'Positions'), ('leaderboard', 'Leaderboard')]:
-        active = st.session_state.tab == tk
-        if st.button(tl, key='nav_' + tk, use_container_width=True,
-                     type='primary' if active else 'secondary'):
-            st.session_state.tab = tk
-            st.rerun()
-
-    if st.session_state.tab == 'feed':
-        st.markdown('<div class="nav-lbl">Category</div>', unsafe_allow_html=True)
-        for ck, ci in CATEGORIES.items():
-            active = st.session_state.category == ck
-            if st.button(ci['label'], key='cat_' + ck, use_container_width=True,
-                         type='primary' if active else 'secondary'):
-                st.session_state.category = ck
-                st.rerun()
-
-    st.markdown('<div class="nav-lbl">Trade size</div>', unsafe_allow_html=True)
-    trade_pct = st.slider('pct', min_value=0.1, max_value=5.0,
-                          value=float(st.session_state.trade_pct),
-                          step=0.1, format='%.1f%%', label_visibility='collapsed')
-    st.session_state.trade_pct = trade_pct
-    _notional = get_trade_notional(trade_pct)
-    st.markdown(
-        '<div style="font-size:0.61rem;color:var(--sub);text-align:center;margin-top:3px;font-family:var(--mono)">'
-        + chr(8776) + ' $' + '{:,.2f}'.format(_notional) + ' per trade</div>',
-        unsafe_allow_html=True,
+acct = load_account()
+port_html = ''
+drw_port_html = ''
+if acct:
+    eq  = float(acct.equity)
+    bp  = float(acct.buying_power)
+    pnl = eq - float(acct.last_equity)
+    pnl_col = '#00d4aa' if pnl >= 0 else '#ff4757'
+    port_html = (
+        '<div id="port-chip">$' + '{:,.0f}'.format(eq)
+        + ' &nbsp;<span style="opacity:0.6;font-size:0.55rem">'
+        + ('+' if pnl >= 0 else '') + '{:.2f}'.format(pnl) + '</span></div>'
+    )
+    drw_port_html = (
+        '<div class="drw-port">'
+        '<div style="font-size:0.52rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);font-family:var(--mono)">Portfolio</div>'
+        '<div class="drw-port-eq">$' + '{:,.0f}'.format(eq) + '</div>'
+        '<div class="drw-port-row"><span>Buying power</span><span>$' + '{:,.0f}'.format(bp) + '</span></div>'
+        '<div class="drw-port-row"><span>Today P&amp;L</span>'
+        '<span style="color:' + pnl_col + ';font-family:var(--mono)">$' + '{:+,.2f}'.format(pnl) + '</span></div>'
+        '<div class="drw-port-row"><span>Trade size</span><span style="color:var(--green);font-family:var(--mono)">$' + '{:,.0f}'.format(_notional) + '</span></div>'
+        '</div>'
     )
 
-    st.markdown('<br>', unsafe_allow_html=True)
-    if st.button('Refresh data', key='refresh', use_container_width=True):
-        st.cache_data.clear()
+# Build active-class strings for topbar pills and drawer items
+tab = st.session_state.tab
+cat = st.session_state.category
+
+def ta(t): return ' active' if tab == t else ''
+def ca(c): return ' active' if cat == c else ''
+
+cat_drawer_items = ''
+for ck, ci in CATEGORIES.items():
+    cat_drawer_items += (
+        '<div class="drw-item' + ca(ck) + '" '
+        'onclick="setCategory(\'' + ck + '\')">'
+        '<div class="drw-dot" style="background:' + ci['hex'] + '"></div>'
+        + ci['label'] + '</div>'
+    )
+
+st.markdown(
+    # ── Topbar
+    '<div id="mirror-topbar">'
+      '<div id="menu-btn" onclick="toggleDrawer()" title="Menu">'
+        '<span></span><span></span><span></span>'
+      '</div>'
+      '<div id="wordmark">MIRROR AI</div>'
+      '<nav id="topbar-nav">'
+        '<div class="tn-pill' + ta('feed') + '" onclick="setTab(\'feed\')">Feed</div>'
+        '<div class="tn-pill' + ta('positions') + '" onclick="setTab(\'positions\')">Positions</div>'
+        '<div class="tn-pill' + ta('leaderboard') + '" onclick="setTab(\'leaderboard\')">Leaderboard</div>'
+      '</nav>'
+      + port_html +
+    '</div>'
+
+    # ── Drawer overlay
+    '<div id="drawer-overlay" onclick="closeDrawer()"></div>'
+
+    # ── Drawer
+    '<div id="mirror-drawer">'
+      '<div class="drw-section">Portfolio</div>'
+      + drw_port_html +
+      '<div class="drw-divider"></div>'
+      '<div class="drw-section">Navigate</div>'
+      '<div class="drw-item' + ta('feed') + '" onclick="setTab(\'feed\')">'
+        '<div class="drw-dot" style="background:var(--green)"></div>Signal Feed'
+      '</div>'
+      '<div class="drw-item' + ta('positions') + '" onclick="setTab(\'positions\')">'
+        '<div class="drw-dot" style="background:var(--blue)"></div>Positions'
+      '</div>'
+      '<div class="drw-item' + ta('leaderboard') + '" onclick="setTab(\'leaderboard\')">'
+        '<div class="drw-dot" style="background:var(--purple)"></div>Leaderboard'
+      '</div>'
+      '<div class="drw-divider"></div>'
+      '<div class="drw-section">Category</div>'
+      + cat_drawer_items +
+      '<div class="drw-divider"></div>'
+      '<div class="drw-section">Data — ' + fresh + '</div>'
+    '</div>'
+
+    # ── JS: drawer toggle + hidden form inputs to communicate tab/category back to Streamlit
+    '<div id="st-hidden" style="display:none">'
+      '<input id="h-tab" value="' + tab + '">'
+      '<input id="h-cat" value="' + cat + '">'
+    '</div>'
+    '<script>'
+    'function toggleDrawer(){'
+      'document.body.classList.toggle("drawer-open");'
+    '}'
+    'function closeDrawer(){'
+      'document.body.classList.remove("drawer-open");'
+    '}'
+    'function setTab(t){'
+      'closeDrawer();'
+      # Find the Streamlit hidden radio/button for tab navigation
+      # We use URL query params — Streamlit reads them via st.query_params
+      'var url=new URL(window.location.href);'
+      'url.searchParams.set("_tab",t);'
+      'url.searchParams.set("_cat","' + cat + '");'
+      'window.location.href=url.toString();'
+    '}'
+    'function setCategory(c){'
+      'closeDrawer();'
+      'var url=new URL(window.location.href);'
+      'url.searchParams.set("_tab","feed");'
+      'url.searchParams.set("_cat",c);'
+      'window.location.href=url.toString();'
+    '}'
+    '</script>',
+    unsafe_allow_html=True,
+)
+
+# Read URL params set by the drawer JS — this is how the drawer communicates
+# navigation intent back to Python without needing Streamlit buttons.
+params = st.query_params
+if '_tab' in params:
+    new_tab = params['_tab']
+    new_cat = params.get('_cat', st.session_state.category)
+    changed = (new_tab != st.session_state.tab or new_cat != st.session_state.category)
+    st.session_state.tab = new_tab
+    st.session_state.category = new_cat
+    if changed:
+        # Clear the params so back-button works cleanly, then rerun to apply state
+        st.query_params.clear()
         st.rerun()
 
-
-# ─────────────────────────────────────────────
-# SIDEBAR TOGGLE BUTTON
-# Uses session_state + rerun — the only reliable approach in Streamlit.
-# Styled to look like a fixed floating button via CSS.
-# ─────────────────────────────────────────────
-st.markdown("""
-<style>
-/* Style the toggle button as a small fixed pill in the top-left */
-div[data-testid="stMainBlockContainer"] > div:first-child div[data-testid="stHorizontalBlock"]:first-child div.stButton > button {
-  position: fixed !important;
-  top: 14px !important;
-  left: 14px !important;
-  z-index: 99999 !important;
-  width: 36px !important;
-  height: 36px !important;
-  padding: 0 !important;
-  border-radius: 8px !important;
-  font-size: 16px !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  background: rgba(8,14,28,0.92) !important;
-  backdrop-filter: blur(8px) !important;
-  color: #7c8fad !important;
-  letter-spacing: 0 !important;
-}
-div[data-testid="stMainBlockContainer"] > div:first-child div[data-testid="stHorizontalBlock"]:first-child div.stButton > button:hover {
-  border-color: #00d4aa !important;
-  color: #00d4aa !important;
-  background: rgba(0,212,170,0.08) !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-_toggle_col, _ = st.columns([1, 20])
-with _toggle_col:
-    if st.button('\u2630', key='sidebar_toggle'):
-        st.session_state.sidebar_state = (
-            'collapsed' if st.session_state.sidebar_state == 'expanded' else 'expanded'
-        )
-        st.rerun()
+tab = st.session_state.tab
+cat = st.session_state.category
 
 # ─────────────────────────────────────────────
 # TOASTS
@@ -588,7 +621,7 @@ st.session_state.toasts = []
 # ─────────────────────────────────────────────
 # SIGNAL CARD
 # ─────────────────────────────────────────────
-def render_signal_card(s, cat, acc, key_prefix, notional):
+def render_signal_card(s, cat_key, acc, key_prefix, notional):
     ticker     = s.get('ticker', '')
     score      = float(s.get('score', 0))
     conviction = int(s.get('conviction', 1))
@@ -596,112 +629,89 @@ def render_signal_card(s, cat, acc, key_prefix, notional):
     buy_count  = int(s.get('buy_count', conviction))
     action     = s.get('action', 'BUY')
     is_sell    = action == 'SELL'
-    total      = CATEGORIES[cat]['count']
+    total      = CATEGORIES[cat_key]['count']
     bar_pct    = min(100, int((conviction / total) * 100))
     conf_lbl, _ = confidence_label(conviction, total, score)
     profile    = TICKER_PROFILES.get(ticker, {})
     data_as_of = s.get('data_as_of', '')
 
-    # Use acc-* classes — no curly-brace CSS values in the HTML string
-    ticker_acc = 'acc-red' if is_sell else ('acc-' + acc)
-    ring_acc   = 'acc-red bdr-red bg-red' if is_sell else ('acc-' + acc + ' bdr-' + acc + ' bg-' + acc)
-    action_cls = 'b-sell' if is_sell else 'b-buy'
+    ticker_acc = 'acc-red' if is_sell else 'acc-' + acc
+    ring_cls   = 'acc-red' if is_sell else 'acc-' + acc
+    bar_cls    = 'bar-red' if is_sell else 'bar-' + acc
+    a_cls      = 'b-sell' if is_sell else 'b-buy'
     conf_cls   = 'b-' + conf_lbl.lower()
-    bar_cls    = 'bar-red' if is_sell else ('bar-' + acc)
 
-    # Logo
     lurl = logo_url(ticker)
     if lurl:
         logo_html = (
             '<div class="logo-wrap">'
-            '<img src="' + lurl + '" alt="" '
-            'onerror="this.parentNode.innerHTML=\'<span class=\\\"logo-fb\\\">' + ticker[:2] + '</span>\'">'
+            '<img src="' + lurl + '" alt="" width="28" height="28" '
+            'onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'
+            '<span class="logo-fb" style="display:none">' + ticker[:2] + '</span>'
             '</div>'
         )
     else:
         logo_html = '<div class="logo-wrap"><span class="logo-fb">' + ticker[:2] + '</span></div>'
 
-    company = profile.get('company', '') or ''
-    sector  = profile.get('sector', '') or ''
-    co_line = company + ('  &middot;  ' + sector if sector else '')
-
-    inv_list   = [p.strip() for p in investors.split(',') if p.strip()]
-    pills_html = ''.join('<span class="pill">' + p + '</span>' for p in inv_list)
-
-    date_line = (
-        '<div style="font-size:0.57rem;margin-top:2px;color:var(--muted)">as of ' + data_as_of + '</div>'
-        if data_as_of else ''
-    )
-
-    score_str = '{:.1f}'.format(score)
-    bar_w     = str(bar_pct) + '%'
+    company  = profile.get('company', '') or ''
+    sector   = profile.get('sector', '') or ''
+    co_line  = company + ('  &middot;  ' + sector if sector else '')
+    inv_list = [p.strip() for p in investors.split(',') if p.strip()]
+    pills    = ''.join('<span class="pill">' + p + '</span>' for p in inv_list)
+    date_ln  = ('<div style="font-size:0.56rem;margin-top:2px;color:var(--muted)">as of ' + data_as_of + '</div>') if data_as_of else ''
 
     st.markdown(
         '<div class="card' + (' card-sell' if is_sell else '') + '">'
-
-        # Header row
         '<div class="ch">'
           '<div class="ch-left">'
             + logo_html +
             '<div>'
               '<div class="t-sym ' + ticker_acc + '">' + ticker + '</div>'
               '<div class="t-co">' + co_line + '</div>'
-              + date_line +
+              + date_ln +
             '</div>'
           '</div>'
-          '<div class="score-ring ' + ring_acc + '">' + score_str + '</div>'
+          '<div class="score-ring ' + ring_cls + '">' + '{:.1f}'.format(score) + '</div>'
         '</div>'
-
-        # Badges
         '<div class="badges">'
-          '<span class="badge ' + action_cls + '">' + action + '</span>'
+          '<span class="badge ' + a_cls + '">' + action + '</span>'
           '<span class="badge ' + conf_cls + '">' + conf_lbl + '</span>'
         '</div>'
-
-        # Investor pills
-        '<div class="pills">' + pills_html + '</div>'
-
-        # Conviction bar
-        '<div class="btrack"><div style="position:absolute;top:0;left:0;height:2px;border-radius:3px;opacity:0.75;width:' + bar_w + '" class="' + bar_cls + '"></div></div>'
-
-        # Stats
+        '<div class="pills">' + pills + '</div>'
+        '<div class="btrack"><div class="' + bar_cls + '" style="position:absolute;top:0;left:0;height:2px;border-radius:3px;opacity:0.8;width:' + str(bar_pct) + '%"></div></div>'
         '<div class="stats">'
           '<div><div class="sl">Conviction</div><div class="sv">' + str(conviction) + '/' + str(total) + '</div></div>'
           '<div><div class="sl">Disclosures</div><div class="sv">' + str(buy_count) + '</div></div>'
           '<div><div class="sl">Score</div><div class="sv ' + ticker_acc + '">' + '{:.2f}'.format(score) + '</div></div>'
         '</div>'
-
         '</div>',
         unsafe_allow_html=True,
     )
 
-    # Deep dive
     with st.expander('Deep dive  ' + ticker, expanded=False):
         bars = fetch_price_history(ticker)
         if bars:
-            closes  = [b[1] for b in bars]
-            pct_chg = ((closes[-1] - closes[0]) / closes[0] * 100) if closes[0] else 0
+            pct_chg = ((bars[-1] - bars[0]) / bars[0] * 100) if bars[0] else 0
             chg_cls = 'acc-green' if pct_chg >= 0 else 'acc-red'
             st.markdown(
                 '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
-                '<span class="' + ('acc-' + acc) + '" style="font-family:var(--mono);font-size:1rem;font-weight:700">$' + '{:,.2f}'.format(closes[-1]) + '</span>'
-                '<span class="' + chg_cls + '" style="font-family:var(--mono);font-size:0.73rem">' + '{:+.1f}'.format(pct_chg) + '%  30d</span>'
+                '<span class="' + ring_cls + '" style="font-family:var(--mono);font-size:1rem;font-weight:700">$' + '{:,.2f}'.format(bars[-1]) + '</span>'
+                '<span class="' + chg_cls + '" style="font-family:var(--mono);font-size:0.73rem">' + '{:+.1f}'.format(pct_chg) + '% &nbsp;30d</span>'
                 '</div>',
                 unsafe_allow_html=True,
             )
-            st.line_chart({'Price': closes}, height=90, use_container_width=True)
+            st.line_chart({'Price': bars}, height=90, use_container_width=True)
         else:
             st.markdown('<div style="font-size:0.67rem;color:var(--sub);padding:6px 0">Price history unavailable</div>', unsafe_allow_html=True)
 
         if profile:
             risk = profile.get('risk', 3)
-            bars_str = chr(9608) * risk + chr(9617) * (5 - risk)
             st.markdown(
                 '<div class="ddl">About ' + ticker + '</div>'
                 '<div style="font-size:0.71rem;color:var(--text);line-height:1.72;margin-bottom:6px">' + profile.get('summary', '') + '</div>'
                 '<div style="font-size:0.61rem;color:var(--sub)">Risk &nbsp;'
-                '<span style="font-family:var(--mono);color:var(--text)">' + bars_str + '</span>'
-                '&nbsp;' + str(risk) + '/5</div>',
+                '<span style="font-family:var(--mono);color:var(--text)">' + chr(9608)*risk + chr(9617)*(5-risk) + '</span>'
+                ' ' + str(risk) + '/5</div>',
                 unsafe_allow_html=True,
             )
 
@@ -721,7 +731,7 @@ def render_signal_card(s, cat, acc, key_prefix, notional):
                         unsafe_allow_html=True,
                     )
 
-        reasoning = SCORING_EXPLAINER.get(cat, '')
+        reasoning = SCORING_EXPLAINER.get(cat_key, '')
         if reasoning:
             st.markdown(
                 '<div class="ai-box">'
@@ -731,22 +741,18 @@ def render_signal_card(s, cat, acc, key_prefix, notional):
                 unsafe_allow_html=True,
             )
 
-    # Buttons
-    decision_key = cat + '_' + ticker + '_' + action
+    decision_key = cat_key + '_' + ticker + '_' + action
     col_a, col_b = st.columns([3, 2])
     with col_a:
         btn_lbl = ('MIRROR  SELL  ' + ticker) if is_sell else ('MIRROR  BUY  $' + '{:,.0f}'.format(notional))
         if st.button(btn_lbl, key=key_prefix + '_a', use_container_width=True, type='primary'):
             ok, result, amt = place_order(ticker,
                                           side=OrderSide.SELL if is_sell else OrderSide.BUY,
-                                          category=cat, investors=investors)
+                                          category=cat_key, investors=investors)
             st.session_state.decisions[decision_key] = 'mirrored'
             save_decisions(st.session_state.decisions)
             verb = 'Sold' if is_sell else 'Bought'
-            if ok:
-                st.session_state.toasts.append((True, verb + ': ' + ticker + '  ' + result))
-            else:
-                st.session_state.toasts.append((False, 'Order failed: ' + result))
+            st.session_state.toasts.append((ok, (verb + ': ' + ticker + ' ' + result) if ok else 'Order failed: ' + result))
             st.rerun()
     with col_b:
         if st.button('SKIP', key=key_prefix + '_b', use_container_width=True):
@@ -760,12 +766,9 @@ def render_signal_card(s, cat, acc, key_prefix, notional):
 # ─────────────────────────────────────────────
 # FEED
 # ─────────────────────────────────────────────
-if st.session_state.tab == 'feed':
-    all_sug = load_suggestions()
-    cat     = st.session_state.category
+if tab == 'feed':
     acc     = CATEGORIES[cat]['acc']
-    signals = all_sug.get(cat, [])
-
+    signals = sug.get(cat, [])
     pending = [s for s in signals
                if st.session_state.decisions.get(cat + '_' + s['ticker'] + '_' + s.get('action', 'BUY'), 'pending') == 'pending']
     decided = [s for s in signals
@@ -808,7 +811,7 @@ if st.session_state.tab == 'feed':
 # ─────────────────────────────────────────────
 # POSITIONS
 # ─────────────────────────────────────────────
-elif st.session_state.tab == 'positions':
+elif tab == 'positions':
     positions  = load_positions()
     trade_log  = load_trade_log()
     log_by_sym = {e['ticker']: e for e in trade_log}
@@ -825,8 +828,8 @@ elif st.session_state.tab == 'positions':
             st.metric('Portfolio value', '$' + '{:,.2f}'.format(total_val))
         with c2:
             st.metric('Unrealized P&L', '$' + '{:+,.2f}'.format(total_pnl))
-
         st.markdown('<br>', unsafe_allow_html=True)
+
         for p in sorted(positions, key=lambda x: float(x.unrealized_pl), reverse=True):
             pnl  = float(p.unrealized_pl)
             pct  = float(p.unrealized_plpc) * 100
@@ -835,19 +838,18 @@ elif st.session_state.tab == 'positions':
             log = log_by_sym.get(p.symbol, {})
             c   = log.get('category', '')
             inv = log.get('investors', '')
-            cat_acc = CATEGORIES.get(c, {}).get('acc', '')
+            cat_hex = CATEGORIES.get(c, {}).get('hex', '')
             cat_tag = (
-                '<span class="acc-' + cat_acc + '" style="font-size:0.55rem;font-family:var(--mono);'
+                '<span style="font-size:0.55rem;font-family:var(--mono);color:' + cat_hex + ';'
                 'background:rgba(255,255,255,0.04);border:1px solid var(--bdr);border-radius:4px;'
                 'padding:1px 5px;margin-left:6px">' + c.upper() + '</span>'
-            ) if c and cat_acc else ''
+            ) if c and cat_hex else ''
             lurl = logo_url(p.symbol)
             logo_bit = '<img src="' + lurl + '" style="width:20px;height:20px;border-radius:5px;margin-right:7px;vertical-align:middle" onerror="this.style.display=\'none\'" alt="">' if lurl else ''
-
             st.markdown(
                 '<div class="pos-row">'
                 '<div><div class="pos-sym">' + logo_bit + p.symbol + cat_tag + '</div>'
-                '<div class="pos-meta">' + '{:.4f}'.format(float(p.qty)) + ' sh  &middot;  $' + '{:,.2f}'.format(float(p.current_price)) + '  &middot;  ' + (inv[:35] or '—') + '</div></div>'
+                '<div class="pos-meta">' + '{:.4f}'.format(float(p.qty)) + ' sh &middot; $' + '{:,.2f}'.format(float(p.current_price)) + ' &middot; ' + (inv[:35] or '—') + '</div></div>'
                 '<div style="text-align:right">'
                 '<div class="' + pnl_cls + '" style="font-family:var(--mono);font-size:0.9rem;font-weight:600">$' + '{:+,.2f}'.format(pnl) + '</div>'
                 '<div class="' + pnl_cls + '" style="font-family:var(--mono);font-size:0.66rem">' + '{:+.2f}'.format(pct) + '%</div>'
@@ -865,14 +867,13 @@ elif st.session_state.tab == 'positions':
 # ─────────────────────────────────────────────
 # LEADERBOARD
 # ─────────────────────────────────────────────
-elif st.session_state.tab == 'leaderboard':
-    all_sug    = load_suggestions()
+elif tab == 'leaderboard':
     positions  = load_positions()
     trade_log  = load_trade_log()
     pnl_by_sym = {p.symbol: float(p.unrealized_pl) for p in positions}
     cat_pnl    = {}
     for entry in trade_log:
-        c = entry.get('category', '')
+        c   = entry.get('category', '')
         sym = entry.get('ticker', '')
         if c and sym in pnl_by_sym:
             cat_pnl[c] = cat_pnl.get(c, 0.0) + pnl_by_sym[sym]
@@ -881,7 +882,7 @@ elif st.session_state.tab == 'leaderboard':
 
     for cat_key, cat_info in CATEGORIES.items():
         acc     = cat_info['acc']
-        signals = all_sug.get(cat_key, [])
+        signals = sug.get(cat_key, [])
         if not signals:
             continue
 
@@ -902,18 +903,18 @@ elif st.session_state.tab == 'leaderboard':
         max_score = ranked[0][1] if ranked else 1.0
 
         st.markdown('<div class="sec-lbl">' + cat_info['label'].upper() + pnl_str + '</div>', unsafe_allow_html=True)
-
         rank_classes = ['acc-gold', 'acc-silver', 'acc-bronze']
         for i, (name, score) in enumerate(ranked[:7]):
-            bar_pct   = int((score / max_score) * 100)
-            rank_cls  = rank_classes[i] if i < 3 else 'acc-muted'
+            bar_pct  = int((score / max_score) * 100)
+            rank_cls = rank_classes[i] if i < 3 else 'acc-muted'
             st.markdown(
                 '<div class="lb-row">'
                 '<span class="lb-rank ' + rank_cls + '">#' + '{:02d}'.format(i+1) + '</span>'
                 '<div style="flex:1"><div class="lb-name">' + name + '</div>'
-                '<div class="btrack" style="margin:4px 0 0"><div class="' + 'bar-' + acc + '" style="position:absolute;top:0;left:0;height:2px;border-radius:2px;opacity:0.65;width:' + str(bar_pct) + '%"></div></div>'
-                '</div>'
-                '<span class="lb-score acc-' + acc + '">' + '{:.1f}'.format(score) + '</span>'
+                '<div class="btrack" style="margin:4px 0 0">'
+                '<div class="bar-' + acc + '" style="position:absolute;top:0;left:0;height:2px;border-radius:2px;opacity:0.65;width:' + str(bar_pct) + '%"></div>'
+                '</div></div>'
+                '<span class="acc-' + acc + '" style="font-family:var(--mono);font-size:0.79rem">' + '{:.1f}'.format(score) + '</span>'
                 '</div>',
                 unsafe_allow_html=True,
             )
