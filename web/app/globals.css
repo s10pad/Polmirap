@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Barlow:wght@200;300;400;500;600&family=Barlow+Condensed:wght@200;300;400;500;600;700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --muted: 0 0% 100% / 0.42;
+    --muted-foreground: 0 0% 100% / 0.42;
+    --border: 0 0% 100% / 0.07;
+    --border2: 0 0% 100% / 0.14;
+
+    /* Spectrum accent colors */
+    --cr: #ff2d55;
+    --co: #ff6b00;
+    --cy: #ffd60a;
+    --cg: #00e676;
+    --cc: #00e5ff;
+    --cb: #448aff;
+    --cp: #ea80fc;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: #000;
+    color: #fff;
+    font-family: 'Barlow', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9000;
+    opacity: 0.38;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  /* ── Crystal clip-paths ── */
+  .clip-prism {
+    clip-path: polygon(50% 2%, 96% 30%, 80% 98%, 20% 98%, 4% 30%);
+  }
+  .clip-diamond {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  }
+
+  /* ── Crystal holo layer ── */
+  .holo-layer {
+    position: absolute;
+    inset: -55%;
+    width: 210%;
+    height: 210%;
+    mix-blend-mode: screen;
+    animation: holo-spin var(--spin-dur, 9s) linear infinite;
+  }
+
+  .holo-layer-sm {
+    position: absolute;
+    inset: -35%;
+    width: 170%;
+    height: 170%;
+    mix-blend-mode: screen;
+    animation: holo-spin var(--spin-dur, 5s) linear infinite;
+  }
+
+  /* ── Spectrum rule ── */
+  .spec-rule {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      #ff2d55 12%,
+      #ff6b00 26%,
+      #ffd60a 42%,
+      #00e676 56%,
+      #00e5ff 70%,
+      #ea80fc 86%,
+      transparent 100%
+    );
+    opacity: 0.45;
+  }
+
+  /* ── Reveal animation ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.9s ease, transform 0.9s ease;
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal.d1 { transition-delay: 0.1s; }
+  .reveal.d2 { transition-delay: 0.22s; }
+  .reveal.d3 { transition-delay: 0.38s; }
+
+  /* ── Muted text ── */
+  .text-muted-mirror { color: rgba(255, 255, 255, 0.42); }
+
+  /* ── Feature grid hover line ── */
+  .feat-item {
+    position: relative;
+    overflow: hidden;
+    transition: background 0.35s;
+  }
+  .feat-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 1px;
+    width: 0;
+    background: linear-gradient(90deg, transparent, #00e5ff, transparent);
+    transition: width 0.7s ease;
+  }
+  .feat-item:hover::after { width: 100%; }
+  .feat-item:hover { background: rgba(255, 255, 255, 0.018); }
+}
+
+/* ── Custom keyframes (beyond Tailwind config) ── */
+@keyframes holo-spin  { to { transform: rotate(360deg); } }
+@keyframes float-y    {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-14px) rotate(4deg); }
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.12); }
+}
+@keyframes blink      { 0%, 100% { opacity: 1; } 50% { opacity: 0.18; } }
+@keyframes ray-fade   { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.85; } }
+@keyframes fade-up    {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
