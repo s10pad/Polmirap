@@ -1,0 +1,6 @@
+node_modules/
+temporary screenshots/
+.server-pid
+*.pyc
+__pycache__/
+.env
