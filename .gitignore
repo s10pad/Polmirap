@@ -3,6 +3,24 @@ temporary screenshots/
 .server-pid
 *.pyc
 __pycache__/
+*.py[cod]
 .env
 FOLLOWUP.md
 spectral-finance.webflow.io_.png
+
+# Generated data files
+suggestions.json
+politician_trades.json
+decisions.json
+trade_log.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key

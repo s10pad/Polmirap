@@ -1,0 +1,122 @@
+[
+  {
+    "pk": "suggestion#PALANTIR_TECHNOLOGIES",
+    "sk": "2026-04-23",
+    "name": "PALANTIR TECHNOLOGIES INC",
+    "score": 184.9032,
+    "conviction": 1,
+    "investors": "burry",
+    "total_value_k": 912100000.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699186+00:00"
+  },
+  {
+    "pk": "suggestion#APPLE",
+    "sk": "2026-04-23",
+    "name": "APPLE INC",
+    "score": 85.6474,
+    "conviction": 6,
+    "investors": "buffett",
+    "total_value_k": 58216048203.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699214+00:00"
+  },
+  {
+    "pk": "suggestion#AMERICAN_EXPRESS",
+    "sk": "2026-04-23",
+    "name": "AMERICAN EXPRESS CO",
+    "score": 69.3367,
+    "conviction": 1,
+    "investors": "buffett",
+    "total_value_k": 55145133598.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699232+00:00"
+  },
+  {
+    "pk": "suggestion#ALPHABET",
+    "sk": "2026-04-23",
+    "name": "ALPHABET INC",
+    "score": 59.4429,
+    "conviction": 4,
+    "investors": "buffett, ackman, dalio",
+    "total_value_k": 8230300665.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699246+00:00"
+  },
+  {
+    "pk": "suggestion#NVIDIA_CORPORATION",
+    "sk": "2026-04-23",
+    "name": "NVIDIA CORPORATION",
+    "score": 56.5721,
+    "conviction": 2,
+    "investors": "burry, dalio",
+    "total_value_k": 907440733.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699261+00:00"
+  },
+  {
+    "pk": "suggestion#SPDR_S&AMP;P_500_TR",
+    "sk": "2026-04-23",
+    "name": "SPDR S&amp;P 500 ETF TR",
+    "score": 52.4999,
+    "conviction": 1,
+    "investors": "dalio",
+    "total_value_k": 3038235233.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699272+00:00"
+  },
+  {
+    "pk": "suggestion#BROOKFIELD",
+    "sk": "2026-04-23",
+    "name": "BROOKFIELD CORP",
+    "score": 47.1847,
+    "conviction": 1,
+    "investors": "ackman",
+    "total_value_k": 2817787754.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699282+00:00"
+  },
+  {
+    "pk": "suggestion#ISHARES_TR",
+    "sk": "2026-04-23",
+    "name": "ISHARES TR",
+    "score": 47.0619,
+    "conviction": 1,
+    "investors": "dalio",
+    "total_value_k": 2866877329.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699292+00:00"
+  },
+  {
+    "pk": "suggestion#AMAZON",
+    "sk": "2026-04-23",
+    "name": "AMAZON COM INC",
+    "score": 46.1676,
+    "conviction": 2,
+    "investors": "ackman, dalio",
+    "total_value_k": 2667373924.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699302+00:00"
+  },
+  {
+    "pk": "suggestion#UBER_TECHNOLOGIES",
+    "sk": "2026-04-23",
+    "name": "UBER TECHNOLOGIES INC",
+    "score": 39.2654,
+    "conviction": 1,
+    "investors": "ackman",
+    "total_value_k": 2468273945.0,
+    "action": "BUY",
+    "status": "pending",
+    "created": "2026-04-23T02:01:44.699313+00:00"
+  }
+]

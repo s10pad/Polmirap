@@ -4,6 +4,29 @@ Monitor public trade disclosures from politicians, executives, and high-profile 
 
 ---
 
+## What it does
+
+Tracks and mirrors the publicly disclosed stock trades of the **top 7 US politicians** ranked by portfolio returns (Unusual Whales 2024 data):
+
+| Rank | Politician | 2024 Return |
+|------|-----------|-------------|
+| 1 | Nancy Pelosi | +70.9% |
+| 2 | David Rouzer | +149.0% |
+| 3 | Ron Wyden | +123.8% |
+| 4 | Pete Sessions | +77.5% |
+| 5 | Susan Collins | +77.5% |
+| 6 | Tommy Tuberville | top active trader |
+| 7 | Marjorie Taylor Greene | +30.2% |
+
+1. **Fetches** all STOCK Act trade disclosures from public House and Senate data feeds
+2. **Filters** for target politicians only
+3. **Scores** each ticker — buy disclosures add weight, sell disclosures subtract; weighted by politician track record; cross-politician conviction multiplier
+4. **Surfaces** the top 10 buy signals in a feed you can approve or reject
+5. **Executes** approved trades as fractional market orders on Alpaca (paper mode by default)
+6. **Tracks** open positions, unrealized P&L, and a politician leaderboard
+
+---
+
 ## Repository Structure
 
 ```
@@ -28,18 +51,27 @@ Polmirap/
 │   ├── tsconfig.json
 │   └── package.json
 │
-└── mirror_ai/              # Python backend — Streamlit dashboard
-    ├── app.py              # Main Streamlit app (7 tabs: DASHBOARD, FEED, POSITIONS…)
-    ├── agent.py            # AI trading agent logic
-    ├── fetcher.py          # Trade disclosure fetcher
-    ├── scorer.py           # Signal scoring engine
-    ├── roster.py           # Politician/executive roster management
-    ├── scheduler.py        # APScheduler job runner
-    ├── strategy.py         # Trade strategy logic
-    ├── memory.py           # Firebase persistence layer
-    ├── notifier.py         # Telegram notification dispatch
-    ├── requirements.txt    # Python dependencies
-    └── railway.toml        # Railway deployment config
+├── mirror_ai/              # Python backend — Streamlit dashboard (v2)
+│   ├── app.py              # Main Streamlit app (7 tabs: DASHBOARD, FEED, POSITIONS…)
+│   ├── agent.py            # AI trading agent logic
+│   ├── fetcher.py          # Trade disclosure fetcher
+│   ├── scorer.py           # Signal scoring engine
+│   ├── roster.py           # Politician/executive roster management
+│   ├── scheduler.py        # APScheduler job runner
+│   ├── strategy.py         # Trade strategy logic
+│   ├── memory.py           # Firebase persistence layer
+│   ├── notifier.py         # Telegram notification dispatch
+│   ├── requirements.txt    # Python dependencies
+│   └── railway.toml        # Railway deployment config
+│
+├── app.py                  # Streamlit UI — feed, positions, leaderboard (v1, root)
+├── fetcher.py              # Fetches + scores congressional STOCK Act disclosures (v1)
+├── scorer.py               # Re-scores from cached data without re-fetching (v1)
+├── strategy.py             # Position sizing — MirrorStrategy (v1)
+├── lambda_function.py      # AWS Lambda for automated trade mirroring
+├── database.py             # DynamoDB deduplication helper
+├── suggestions.json        # Scored top-10 signals (output of fetcher.py)
+└── manifest.json           # PWA manifest
 ```
 
 ---
@@ -92,7 +124,7 @@ npm run build
 
 ---
 
-### 3 — Python backend (Streamlit dashboard)
+### 3 — Python backend — Streamlit dashboard (v2, recommended)
 
 ```bash
 cd mirror_ai
@@ -106,7 +138,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Copy and fill in environment variables
-cp .env.example .env          # if .env.example exists, else create .env manually
+# Create a .env file in mirror_ai/ with the keys below
 ```
 
 **Required `.env` keys:**
@@ -114,7 +146,7 @@ cp .env.example .env          # if .env.example exists, else create .env manuall
 ```env
 ALPACA_API_KEY=
 ALPACA_SECRET_KEY=
-ALPACA_BASE_URL=https://paper-api.alpaca.markets   # or live URL
+ALPACA_BASE_URL=https://paper-api.alpaca.markets   # switch to live URL for real money
 
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
@@ -132,7 +164,29 @@ Opens at **http://localhost:8501**
 
 ---
 
-### 4 — Screenshot utility (dev tool)
+### 4 — Python backend — root Streamlit app (v1)
+
+```bash
+# From repo root
+pip install streamlit alpaca-py
+
+export ALPACA_KEY=your_alpaca_api_key
+export ALPACA_SECRET=your_alpaca_api_secret
+# Windows: set ALPACA_KEY=...
+
+streamlit run app.py
+```
+
+Optional (for AWS Lambda automated execution):
+
+```env
+AWS_REGION=us-east-1
+DYNAMODB_TABLE=mirror-trades
+```
+
+---
+
+### 5 — Screenshot utility (dev tool)
 
 ```bash
 # Capture a screenshot of any local page
@@ -158,7 +212,7 @@ startCommand = "streamlit run app.py --server.port $PORT --server.address 0.0.0.
 healthcheckPath = "/_stcore/health"
 ```
 
-Push to Railway via their CLI or GitHub integration. Set all `.env` keys as Railway environment variables.
+Connect the GitHub repo to Railway. Set all `.env` keys as Railway environment variables (Settings → Variables).
 
 ### Frontend — Vercel (recommended for Next.js)
 
@@ -184,7 +238,7 @@ Or connect the GitHub repo to Vercel and set the root directory to `web/`.
 | clsx + tailwind-merge | Conditional classname utility |
 | lucide-react | Icon set |
 
-### Backend (`mirror_ai/`)
+### Backend v2 (`mirror_ai/`)
 
 | Package | Purpose |
 |---------|---------|
@@ -196,6 +250,14 @@ Or connect the GitHub repo to Vercel and set the root directory to `web/`.
 | plotly | Interactive charts |
 | python-telegram-bot | Trade alert notifications |
 
+### Backend v1 (root)
+
+| Package | Purpose |
+|---------|---------|
+| Streamlit | Dashboard UI |
+| alpaca-py | Brokerage API |
+| boto3 | AWS DynamoDB (deduplication) |
+
 ---
 
 ## Design System
@@ -203,7 +265,7 @@ Or connect the GitHub repo to Vercel and set the root directory to `web/`.
 The frontend uses the **SPECTRAL** design language:
 
 - **Fonts:** Syncopate (display), Barlow Condensed (subheadings), Barlow (body), DM Mono (data)
-- **Palette:** Near-black base (`#030b14`), teal accent (`--spectrum-teal: #00d4aa`), sky accent (`--spectrum-sky: #38bdf8`), violet (`--spectrum-violet: #a78bfa`)
+- **Palette:** Near-black base (`#030b14`), teal accent (`#00d4aa`), sky accent (`#38bdf8`), violet (`#a78bfa`)
 - **Background:** Three.js animated particle grid (`DottedSurface`) + grain texture overlay
 - **Crystals:** CSS clip-path pentagon prism + diamond shapes with animated holographic conic-gradient layers
 - **Motion:** `transform` + `opacity` only; spring easing; IntersectionObserver scroll-reveal
