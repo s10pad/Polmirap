@@ -1,12 +1,23 @@
+# Dependencies / build
 node_modules/
-temporary screenshots/
-.server-pid
+.next/
+out/
+
+# Python
 *.pyc
-__pycache__/
 *.py[cod]
+__pycache__/
+.venv/
+venv/
+
+# Secrets — NEVER commit
 .env
-FOLLOWUP.md
-spectral-finance.webflow.io_.png
+.env.local
+.env.*.local
+*.pem
+*.key
+serviceAcountKey.JSON
+serviceAccountKey.json
 
 # Generated data files
 suggestions.json
@@ -14,13 +25,14 @@ politician_trades.json
 decisions.json
 trade_log.json
 
-# Logs
+# Dev artifacts
+temporary screenshots/
+.server-pid
 *.log
+
+# Planning (private)
+FOLLOWUP.md
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Secrets
-*.pem
-*.key
