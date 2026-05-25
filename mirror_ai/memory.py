@@ -244,3 +244,60 @@ def remove_from_watchlist(ticker: str) -> bool:
         tickers.remove(ticker)
         return set_key("watchlist", tickers)
     return True
+
+
+# ── Per-user namespace — single operator today, multi-user ready (Phase 7) ───
+
+
+def _user_doc_ref(uid: str, key: str):
+    return get_db().collection("users").document(uid).collection("data").document(key)
+
+
+def get_user_key(uid: str, key: str, default=None):
+    try:
+        doc = _user_doc_ref(uid, key).get()
+        if not doc.exists:
+            return default
+        return doc.to_dict().get("data", default)
+    except Exception as e:
+        logger.error(f"Firestore user get uid={uid} key={key}: {e}")
+        return default
+
+
+def set_user_key(uid: str, key: str, value) -> bool:
+    try:
+        _user_doc_ref(uid, key).set({"data": value})
+        return True
+    except Exception as e:
+        logger.error(f"Firestore user set uid={uid} key={key}: {e}")
+        return False
+
+
+def get_user_positions_meta(uid: str) -> dict:
+    return get_user_key(uid, "positions_meta", {})
+
+
+def set_user_positions_meta(uid: str, meta: dict) -> bool:
+    return set_user_key(uid, "positions_meta", meta)
+
+
+def get_user_watchlist(uid: str) -> list:
+    return get_user_key(uid, "watchlist", [])
+
+
+def add_to_user_watchlist(uid: str, ticker: str) -> bool:
+    tickers = get_user_watchlist(uid)
+    ticker = ticker.upper()
+    if ticker not in tickers:
+        tickers.append(ticker)
+        return set_user_key(uid, "watchlist", tickers)
+    return True
+
+
+def remove_from_user_watchlist(uid: str, ticker: str) -> bool:
+    tickers = get_user_watchlist(uid)
+    ticker = ticker.upper()
+    if ticker in tickers:
+        tickers.remove(ticker)
+        return set_user_key(uid, "watchlist", tickers)
+    return True

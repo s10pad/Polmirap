@@ -201,3 +201,113 @@ def get_current_price(ticker: str) -> Optional[float]:
     except Exception as e:
         logger.error(f"Price fetch failed for {ticker}: {e}")
         return None
+
+
+# ── SEC EDGAR fetchers ────────────────────────────────────────────────────────
+
+EDGAR_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index"
+
+
+def fetch_edgar_13f_filers(count: int = 15) -> list:
+    """
+    Query SEC EDGAR full-text search for recent 13F-HR filers (fund managers).
+    Returns result dicts in the same {title, url, description} format as brave_search.
+    No API key required — public EDGAR endpoint.
+    """
+    try:
+        start = (datetime.now() - timedelta(days=120)).strftime("%Y-%m-%d")
+        params = {
+            "q": "*",
+            "forms": "13F-HR",
+            "dateRange": "custom",
+            "startdt": start,
+            "from": "0",
+            "size": str(count * 3),
+        }
+        resp = requests.get(EDGAR_SEARCH_URL, params=params, timeout=15)
+        resp.raise_for_status()
+        hits = resp.json().get("hits", {}).get("hits", [])
+
+        seen: set = set()
+        results = []
+        for hit in hits:
+            src = hit.get("_source", {})
+            period = src.get("period_of_report", "")
+            for name_info in src.get("display_names", []):
+                name = name_info.get("name", "") if isinstance(name_info, dict) else str(name_info)
+                if name and name not in seen:
+                    seen.add(name)
+                    results.append({
+                        "title": f"{name} — 13F-HR SEC Filing",
+                        "url": (
+                            f"https://www.sec.gov/cgi-bin/browse-edgar"
+                            f"?action=getcompany&company={name}&type=13F"
+                        ),
+                        "description": (
+                            f"Institutional fund manager {name} filed 13F-HR with the SEC "
+                            f"for period {period}. Confirmed quarterly equity holdings disclosure."
+                        ),
+                    })
+                if len(results) >= count:
+                    break
+            if len(results) >= count:
+                break
+
+        logger.info(f"EDGAR 13F: {len(results)} filers found")
+        return results
+    except Exception as e:
+        logger.error(f"EDGAR 13F fetch failed: {e}")
+        return []
+
+
+def fetch_edgar_form4_insiders(count: int = 15) -> list:
+    """
+    Query SEC EDGAR for recent Form 4 filers (corporate insiders / CEOs).
+    Returns result dicts in the same {title, url, description} format as brave_search.
+    No API key required — public EDGAR endpoint.
+    """
+    try:
+        start = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        params = {
+            "q": "*",
+            "forms": "4",
+            "dateRange": "custom",
+            "startdt": start,
+            "from": "0",
+            "size": str(count * 4),
+        }
+        resp = requests.get(EDGAR_SEARCH_URL, params=params, timeout=15)
+        resp.raise_for_status()
+        hits = resp.json().get("hits", {}).get("hits", [])
+
+        seen: set = set()
+        results = []
+        for hit in hits:
+            src = hit.get("_source", {})
+            entity = src.get("entity_name", "")
+            period = src.get("period_of_report", "")
+            for name_info in src.get("display_names", []):
+                name = name_info.get("name", "") if isinstance(name_info, dict) else str(name_info)
+                if name and name not in seen and entity:
+                    seen.add(name)
+                    results.append({
+                        "title": f"{name} — Form 4 SEC Filing ({entity})",
+                        "url": (
+                            f"https://www.sec.gov/cgi-bin/browse-edgar"
+                            f"?action=getcompany&company={entity}&type=4"
+                        ),
+                        "description": (
+                            f"Corporate insider {name} at {entity} filed Form 4 with the SEC "
+                            f"for period {period}. ~2-day disclosure latency."
+                        ),
+                    })
+                if len(results) >= count:
+                    break
+            if len(results) >= count:
+                break
+
+        logger.info(f"EDGAR Form 4: {len(results)} insiders found")
+        return results
+    except Exception as e:
+        logger.error(f"EDGAR Form 4 fetch failed: {e}")
+        return []

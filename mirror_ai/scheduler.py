@@ -20,9 +20,8 @@ def run_daily_job():
     Weekday morning job: fetch disclosures, score signals, send Telegram notifications.
     Queues approved trades for execution after the veto window.
     """
-    from agent import run_daily_analysis, discover_initial_roster
-    from fetcher import fetch_roster_candidates
-    from roster import bootstrap_roster, get_active_members
+    from agent import run_daily_analysis
+    from roster_discovery import discover_and_refresh_roster
     from memory import (
         is_roster_initialized, get_pending_signals, set_pending_signals,
         get_vetoed_tickers, append_changelog, get_autonomy_mode,
@@ -33,12 +32,10 @@ def run_daily_job():
 
     logger.info("Daily job started")
 
-    # Bootstrap roster on first run
+    # Bootstrap roster on first run via discovery engine
     if not is_roster_initialized():
-        logger.info("First run detected — bootstrapping roster via AI")
-        search_results = fetch_roster_candidates()
-        candidates = discover_initial_roster(search_results)
-        bootstrap_roster(candidates)
+        logger.info("First run detected — bootstrapping roster via AI discovery")
+        discover_and_refresh_roster()
         _update_memory_md()
 
     proposals = run_daily_analysis()
@@ -139,21 +136,34 @@ def run_veto_window_check():
 
 def run_weekly_review_job():
     """
-    Monday morning job: generate roster review proposal and send to owner via Telegram.
+    Monday morning job: generate watch report, auto-apply changes, notify via Telegram.
     """
-    from agent import run_weekly_review
+    from watch_report import generate_and_apply_watch_report
     from notifier import send_weekly_review_notification
     from memory import append_changelog
 
     logger.info("Weekly review job started")
-    proposal = run_weekly_review()
-    if proposal:
-        send_weekly_review_notification(proposal)
+    report = generate_and_apply_watch_report()
+    if report:
+        proposal = {"summary": report["summary"], "changes": report["changes_proposed"]}
+        try:
+            send_weekly_review_notification(proposal)
+        except Exception as e:
+            logger.error(f"Weekly review notification failed: {e}")
         _update_memory_md()
     else:
         append_changelog(
             f"[{datetime.now().strftime('%Y-%m-%d')}] WEEKLY_REVIEW — Review generation failed."
         )
+
+
+def run_roster_discovery_job():
+    """Sunday midnight job: refresh the full roster via AI discovery across all sources."""
+    from roster_discovery import discover_and_refresh_roster
+    logger.info("Roster discovery job started")
+    count, changes = discover_and_refresh_roster()
+    _update_memory_md()
+    logger.info(f"Roster discovery complete: {count} change(s)")
 
 
 def run_stop_loss_check():
@@ -337,6 +347,14 @@ def start_scheduler():
         run_stop_loss_check,
         CronTrigger(day_of_week="mon-fri", hour="9-17", minute=0),
         id="stop_loss_check",
+        replace_existing=True,
+    )
+
+    # Weekly roster discovery: Sundays at midnight ET
+    _scheduler.add_job(
+        run_roster_discovery_job,
+        CronTrigger(day_of_week="sun", hour=0, minute=0),
+        id="roster_discovery",
         replace_existing=True,
     )
 
