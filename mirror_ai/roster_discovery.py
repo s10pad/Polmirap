@@ -135,3 +135,36 @@ def discover_and_refresh_roster() -> tuple[int, list]:
 
     logger.info(f"Discovery refresh complete: {len(changes)} change(s)")
     return len(changes), changes
+
+
+if __name__ == "__main__":
+    # CLI: python roster_discovery.py — runs one discovery pass and prints the roster.
+    # Needs GEMINI_API_KEY + BRAVE_SEARCH_API_KEY + Firebase creds in mirror_ai/.env.
+    import sys
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
+    print("\n=== MIRROR AI — Roster Discovery (manual run) ===\n")
+    count, changes = discover_and_refresh_roster()
+
+    if not changes and count == 0:
+        print("No changes / discovery returned nothing. Check API keys and logs above.\n")
+        sys.exit(1)
+
+    print(f"\n{count} change(s) applied:")
+    for c in changes:
+        print(f"  • {c}")
+
+    print("\n--- Current roster ---")
+    for m in sorted(get_active_members(), key=lambda x: x.get("rank", 99)):
+        mirror = "MIRROR" if m.get("mirrorable") else "WATCH "
+        print(
+            f"  #{m.get('rank', '?'):>2} [{mirror}] {m['name']:<28} "
+            f"{m.get('category', '?'):<13} src={m.get('data_source', '?'):<9} "
+            f"w={m.get('weight', 1.0)}"
+        )
+    print()
